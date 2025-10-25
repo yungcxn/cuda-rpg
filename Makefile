@@ -1,3 +1,5 @@
+MAKEFLAGS += -j$(shell nproc)
+
 CC = gcc
 NVCC = nvcc
 CFLAGS = -std=c23 -Wall -Wextra -Wpedantic -O3 -mavx2 -mfma
@@ -9,35 +11,35 @@ CFLAGS += -DDEBUG -g
 NVCCFLAGS += -DDEBUG -g
 endif
 
-SRC_C = src/main.c src/live.c src/key.c src/world/ecs.c src/world/world.c
-SRC_CU = src/render/render.cu src/render/kernel.cu src/render/tex.cu src/render/tileinfo.cu src/render/spriteinfo.cu 
+SRC_C = $(wildcard src/*.c) $(wildcard src/world/*.c)
+SRC_CU = $(wildcard src/render/*.cu)
 OBJ_C = $(SRC_C:.c=.o)
 OBJ_CU = $(SRC_CU:.cu=.o)
 TARGET = main
 
-all: $(TARGET)
+# Default target just builds
+all: exec
 
-# Make main depends on objects + res.h
-$(TARGET): $(OBJ_C) $(OBJ_CU)
+# Build everything without running resgen.py automatically
+exec: $(OBJ_C) $(OBJ_CU) style-check.py
+	python style-check.py
+	$(NVCC) $(NVCCFLAGS) $(OBJ_C) $(OBJ_CU) -o $(TARGET) $(LDFLAGS)
 
-# Make res.h by running your python script
-src/res/res.h: src/res/resgen.py
+# Optional: regenerate resources manually
+res: src/res/res.h
+src/res/res.h:
 	python src/res/resgen.py
 
-# Make C objects depend on res.h
-%.o: %.c src/res/res.h
+# Object rules
+%.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 %.o: %.cu
 	$(NVCC) $(NVCCFLAGS) -c $< -o $@
 
-# Link
-$(TARGET): style-check.py src/res/res.h
-	python style-check.py
-	$(NVCC) $(NVCCFLAGS) $(OBJ_C) $(OBJ_CU) -o $@ $(LDFLAGS)
+# Run depends on exec
+run: exec
+	./$(TARGET)
 
 clean:
-	rm -f $(OBJ_C) $(OBJ_CU) $(TARGET) src/res/res.h
-
-run: $(TARGET)
-	./$(TARGET)
+	rm -f $(OBJ_C) $(OBJ_CU) $(TARGET)

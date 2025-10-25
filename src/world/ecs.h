@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 #include "../types/vec.h"
-#include "../render/spriteinfo.cuh"
+#include "../render/spriteinfo.h"
 
 #define ECS_MAX_ENTITIES 1024
 #define ECS_ENTITY_DEADMASK 0x8000000000000000ULL
@@ -32,39 +32,39 @@ typedef enum {
         ECS_INSTR_STATE_AND = 7,
 } ecs_instr_opcode_t;
 
-typedef struct __attribute__((packed, aligned(32))) {
+typedef struct __attribute__((packed)) {
         uint32_t opcode; /* 32 */
         union {
-                struct {
+                struct __attribute__((packed)) {
                         uint32_t nothing[7]; /* + 224 => 256 */
                 } nop;
-                struct {
+                struct __attribute__((packed)) {
                         char codename[ECS_CODENAME_SIZE]; /* + 32 => 64 */
                         vec2f32_t pos1; /* + 64 => 128 */
                         vec2f32_t pos2; /* + 64 => 192 */
                         vec2f32_t velocity; /* + 64 => 256 */
                 } spawn;
-                struct {
+                struct __attribute__((packed)) {
                         uint32_t entity_id; /* + 32 => 64 */
                 } kill;
-                struct {
+                struct __attribute__((packed)) {
                         uint32_t entity_id;  /* + 32 => 64 */
                         vec2f32_t velocity_diff; /* + 64 => 128 */
                 } velocity_accel;
-                struct {
+                struct __attribute__((packed)) {
                         uint32_t entity_id;  /* + 32 => 64 */
                         vec2f32_t velocity_set; /* + 64 => 128 */
                 } velocity_set;
-                struct {
+                struct __attribute__((packed)) {
                         uint32_t entity_id; /* + 32 => 64 */
                         vec2f32_t pos1; /* + 64 => 128 */
                         vec2f32_t pos2; /* + 64 => 192 */
                 } teleport;
-                struct {
+                struct __attribute__((packed)) {
                         uint32_t entity_id; /* + 32 => 64 */
                         uint64_t state_or; /* + 64 => 128 */
                 } state_or;
-                struct {
+                struct __attribute__((packed)) {
                         uint32_t entity_id; /* + 32 => 64 */
                         uint64_t state_and; /* + 64 => 128 */
                 } state_and;

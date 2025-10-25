@@ -8,7 +8,7 @@
 
 #include "world/world.h"
 
-#include "render/render.cuh"
+#include "render/render.h"
 
 
 

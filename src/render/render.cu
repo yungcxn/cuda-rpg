@@ -1,5 +1,5 @@
 
-#include "render.cuh"
+#include "render.h"
 
 #include <X11/Xlib.h>
 #define VK_USE_PLATFORM_XLIB_KHR
@@ -9,9 +9,9 @@
 #include <unistd.h>
 
 #include "../def.h"
-#include "kernel.cuh"
-#include "spriteinfo.cuh"
-#include "tileinfo.cuh"
+#include "cudakernel.cuh"
+#include "spriteinfo.h"
+#include "tileinfo.h"
 #include "../types/vec.h"
 
 #define RENDER_WIDTH 256
@@ -67,28 +67,33 @@ static inline void _calculate_viewport(void) {
         }
 }
 
+
 static inline void _create_swapchain_and_shared_image(void) {
         VkSurfaceCapabilitiesKHR caps;
-        if (vkGetPhysicalDeviceSurfaceCapabilitiesKHR(phys_dev, surface, &caps) != VK_SUCCESS) THROW("Failed to get surface capabilities");
+        if (vkGetPhysicalDeviceSurfaceCapabilitiesKHR(phys_dev, surface, &caps) != VK_SUCCESS) 
+                THROW("Failed to get surface capabilities");
 
         uint32_t fmt_count = 0;
-        if (vkGetPhysicalDeviceSurfaceFormatsKHR(phys_dev, surface, &fmt_count, 0) != VK_SUCCESS) THROW("Failed to get surface format count");
+        if (vkGetPhysicalDeviceSurfaceFormatsKHR(phys_dev, surface, &fmt_count, 0) != VK_SUCCESS) 
+                THROW("Failed to get surface format count");
         if (fmt_count == 0) THROW("No surface formats found");
 
         VkSurfaceFormatKHR* formats = (VkSurfaceFormatKHR*) malloc(sizeof(VkSurfaceFormatKHR) * fmt_count);
         if (vkGetPhysicalDeviceSurfaceFormatsKHR(phys_dev, surface, &fmt_count, formats) != VK_SUCCESS) 
                 THROW("Failed to get surface formats");
+        
+        /* swapchain: use whatever format is available (likely bgra) */
         VkSurfaceFormatKHR surface_format = formats[0];
+        DEBUG_PRINT("Swapchain format: %d (44=BGRA, 37=RGBA)\n", surface_format.format);
         free(formats);
 
         VkFormatProperties fmt_props;
         vkGetPhysicalDeviceFormatProperties(phys_dev, surface_format.format, &fmt_props);
         if (!(fmt_props.optimalTilingFeatures & (VK_FORMAT_FEATURE_BLIT_SRC_BIT | VK_FORMAT_FEATURE_BLIT_DST_BIT))) {
-                printf("Format %d lacks optimal blit support (features 0x%x). Use shader/copy fallback.", 
-                       (int)surface_format.format, fmt_props.optimalTilingFeatures);
-                THROW("Surface format does not support vkCmdBlitImage; adapt code to use shader copy or supported format");
+                THROW("Surface format does not support vkCmdBlitImage");
         }
 
+        /* get window dimensions */
         Window root_return;
         int x, y;
         unsigned int width, height, border, depth;
@@ -111,6 +116,7 @@ static inline void _create_swapchain_and_shared_image(void) {
         uint32_t img_count = caps.minImageCount + 1;
         if (caps.maxImageCount > 0 && img_count > caps.maxImageCount) img_count = caps.maxImageCount;
 
+        /* step 1: create swapchain (bgra is fine) */
         VkSwapchainCreateInfoKHR sci = {
                 .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
                 .pNext = 0,
@@ -135,11 +141,128 @@ static inline void _create_swapchain_and_shared_image(void) {
         if (vkCreateSwapchainKHR(device, &sci, 0, &swapchain) != VK_SUCCESS) 
                 THROW("Failed to create swapchain");
 
+        /* get swapchain images */
         vkGetSwapchainImagesKHR(device, swapchain, &swapchain_image_count, 0);
         if (swapchain_images) free(swapchain_images);
         swapchain_images = (VkImage*) malloc(sizeof(VkImage) * swapchain_image_count);
         vkGetSwapchainImagesKHR(device, swapchain, &swapchain_image_count, swapchain_images);
 
+        /* step 2: create render & debug images */
+        /* important: render image uses rgba (for cuda), swapchain uses bgra */
+        /* vulkan will convert during blit automatically */
+        
+        VkExternalMemoryImageCreateInfo ext_mem_img_info = {
+                .sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO,
+                .pNext = 0,
+                .handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT_KHR
+        };
+
+        /* create render canvas image - force rgba for cuda */
+        VkImageCreateInfo img_info = {
+                .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+                .pNext = &ext_mem_img_info,
+                .flags = 0,
+                .imageType = VK_IMAGE_TYPE_2D,
+                .format = VK_FORMAT_R8G8B8A8_UNORM,
+                .extent = { RENDER_WIDTH, RENDER_HEIGHT, 1 },
+                .mipLevels = 1,
+                .arrayLayers = 1,
+                .samples = VK_SAMPLE_COUNT_1_BIT,
+                .tiling = VK_IMAGE_TILING_OPTIMAL,
+                .usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+                .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+                .queueFamilyIndexCount = 0,
+                .pQueueFamilyIndices = 0,
+                .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED
+        };
+
+        if (vkCreateImage(device, &img_info, 0, &shared_image) != VK_SUCCESS) 
+                THROW("Failed to create shared image");
+
+        /* create debug overlay image - also rgba for consistency */
+        VkImageCreateInfo debug_img_info = {
+                .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+                .pNext = &ext_mem_img_info,
+                .flags = 0,
+                .imageType = VK_IMAGE_TYPE_2D,
+                .format = VK_FORMAT_R8G8B8A8_UNORM,
+                .extent = { current_extent.width, current_extent.height, 1 },
+                .mipLevels = 1,
+                .arrayLayers = 1,
+                .samples = VK_SAMPLE_COUNT_1_BIT,
+                .tiling = VK_IMAGE_TILING_OPTIMAL,
+                .usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+                .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+                .queueFamilyIndexCount = 0,
+                .pQueueFamilyIndices = 0,
+                .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED
+        };
+
+        if (vkCreateImage(device, &debug_img_info, 0, &debug_overlay_image) != VK_SUCCESS) 
+                THROW("Failed to create debug overlay image");
+
+        /* step 3: allocate & bind memory */
+        VkMemoryRequirements mem_reqs;
+        vkGetImageMemoryRequirements(device, shared_image, &mem_reqs);
+
+        VkPhysicalDeviceMemoryProperties mem_props;
+        vkGetPhysicalDeviceMemoryProperties(phys_dev, &mem_props);
+        uint32_t mem_type_idx = UINT32_MAX;
+        for (uint32_t i = 0; i < mem_props.memoryTypeCount; ++i) {
+                if ((mem_reqs.memoryTypeBits & (1 << i)) && 
+                    (mem_props.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)) {
+                        mem_type_idx = i;
+                        break;
+                }
+        }
+        if (mem_type_idx == UINT32_MAX) THROW("Failed to find suitable memory type");
+
+        VkExportMemoryAllocateInfo exp_mem_info = {
+                .sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO,
+                .pNext = 0,
+                .handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT_KHR
+        };
+
+        VkMemoryAllocateInfo alloc_info = {
+                .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+                .pNext = &exp_mem_info,
+                .allocationSize = mem_reqs.size,
+                .memoryTypeIndex = mem_type_idx
+        };
+
+        if (vkAllocateMemory(device, &alloc_info, 0, &shared_memory) != VK_SUCCESS) 
+                THROW("Failed to allocate shared memory");
+        if (vkBindImageMemory(device, shared_image, shared_memory, 0) != VK_SUCCESS) 
+                THROW("Failed to bind image memory");
+
+        /* allocate memory for debug overlay */
+        VkMemoryRequirements debug_mem_reqs;
+        vkGetImageMemoryRequirements(device, debug_overlay_image, &debug_mem_reqs);
+
+        uint32_t debug_mem_type_idx = UINT32_MAX;
+        for (uint32_t i = 0; i < mem_props.memoryTypeCount; ++i) {
+                if ((debug_mem_reqs.memoryTypeBits & (1 << i)) && 
+                    (mem_props.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)) {
+                        debug_mem_type_idx = i;
+                        break;
+                }
+        }
+        if (debug_mem_type_idx == UINT32_MAX) 
+                THROW("Failed to find suitable memory type for debug overlay image");
+
+        VkMemoryAllocateInfo debug_alloc_info = {
+                .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+                .pNext = &exp_mem_info,
+                .allocationSize = debug_mem_reqs.size,
+                .memoryTypeIndex = debug_mem_type_idx   
+        };
+
+        if (vkAllocateMemory(device, &debug_alloc_info, 0, &debug_overlay_memory) != VK_SUCCESS) 
+                THROW("Failed to allocate debug overlay memory");
+        if (vkBindImageMemory(device, debug_overlay_image, debug_overlay_memory, 0) != VK_SUCCESS) 
+                THROW("Failed to bind debug overlay image memory");
+
+        /* step 4: transition image layouts */
         VkCommandPool cmd_pool = VK_NULL_HANDLE;
         VkCommandPoolCreateInfo cpi = {
                 .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
@@ -167,6 +290,7 @@ static inline void _create_swapchain_and_shared_image(void) {
         if (vkBeginCommandBuffer(cmd, &bi) != VK_SUCCESS) 
                 THROW("Failed to begin command buffer");
 
+        /* transition swapchain images to general layout */
         for (uint32_t i = 0; i < swapchain_image_count; ++i) {
                 VkImageMemoryBarrier barrier = {
                         .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
@@ -186,9 +310,11 @@ static inline void _create_swapchain_and_shared_image(void) {
                                 .layerCount = 1
                         }
                 };
-                vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, 0, 0, 0, 1, &barrier);
+                vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 
+                        VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, 0, 0, 0, 1, &barrier);
         }
 
+        /* transition render image to general layout */
         VkImageMemoryBarrier shared_barrier = {
                 .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
                 .pNext = 0,
@@ -207,8 +333,10 @@ static inline void _create_swapchain_and_shared_image(void) {
                         .layerCount = 1
                 }
         };
-        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, 0, 0, 0, 1, &shared_barrier);
+        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 
+                VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, 0, 0, 0, 1, &shared_barrier);
 
+        /* transition debug overlay to general layout */
         VkImageMemoryBarrier debug_init_barrier = {
                 .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
                 .pNext = 0,
@@ -227,7 +355,8 @@ static inline void _create_swapchain_and_shared_image(void) {
                         .layerCount = 1
                 }
         };
-        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, 0, 0, 0, 1, &debug_init_barrier);
+        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 
+                VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, 0, 0, 0, 1, &debug_init_barrier);
 
         if (vkEndCommandBuffer(cmd) != VK_SUCCESS) THROW("Failed to end command buffer");
 
@@ -243,101 +372,12 @@ static inline void _create_swapchain_and_shared_image(void) {
         vkFreeCommandBuffers(device, cmd_pool, 1, &cmd);
         vkDestroyCommandPool(device, cmd_pool, 0);
 
-        VkExternalMemoryImageCreateInfo ext_mem_img_info = {
-                .sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO,
-                .pNext = 0,
-                .handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT_KHR
-        };
+        /* step 5: setup cuda interop */
+        PFN_vkGetMemoryFdKHR vkGetMemoryFdKHR = 
+                (PFN_vkGetMemoryFdKHR) vkGetDeviceProcAddr(device, "vkGetMemoryFdKHR");
+        if (!vkGetMemoryFdKHR) THROW("Failed to get vkGetMemoryFdKHR");
 
-        VkImageCreateInfo img_info = {
-                .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
-                .pNext = &ext_mem_img_info,
-                .flags = 0,
-                .imageType = VK_IMAGE_TYPE_2D,
-                .format = surface_format.format,
-                .extent = { RENDER_WIDTH, RENDER_HEIGHT, 1 },
-                .mipLevels = 1,
-                .arrayLayers = 1,
-                .samples = VK_SAMPLE_COUNT_1_BIT,
-                .tiling = VK_IMAGE_TILING_OPTIMAL,
-                .usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-                .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-                .queueFamilyIndexCount = 0,
-                .pQueueFamilyIndices = 0,
-                .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED
-        };
-
-        if (vkCreateImage(device, &img_info, 0, &shared_image) != VK_SUCCESS) 
-                THROW("Failed to create shared image");
-
-        VkImageCreateInfo debug_img_info = {
-                .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
-                .pNext = &ext_mem_img_info,
-                .flags = 0,
-                .imageType = VK_IMAGE_TYPE_2D,
-                .format = surface_format.format,
-                .extent = { current_extent.width, current_extent.height, 1 },
-                .mipLevels = 1,
-                .arrayLayers = 1,
-                .samples = VK_SAMPLE_COUNT_1_BIT,
-                .tiling = VK_IMAGE_TILING_OPTIMAL,
-                .usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-                .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-                .queueFamilyIndexCount = 0,
-                .pQueueFamilyIndices = 0,
-                .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED
-        };
-
-        if (vkCreateImage(device, &debug_img_info, 0, &debug_overlay_image) != VK_SUCCESS) THROW("Failed to create debug overlay image");
-
-        VkMemoryRequirements debug_mem_reqs;
-        vkGetImageMemoryRequirements(device, debug_overlay_image, &debug_mem_reqs);
-
-        VkPhysicalDeviceMemoryProperties debug_mem_props;
-        vkGetPhysicalDeviceMemoryProperties(phys_dev, &debug_mem_props);
-
-        uint32_t debug_mem_type_idx = UINT32_MAX;
-        for (uint32_t i = 0; i < debug_mem_props.memoryTypeCount; ++i) {
-                if ((debug_mem_reqs.memoryTypeBits & (1 << i)) && (debug_mem_props.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)) {
-                        debug_mem_type_idx = i;
-                        break;
-                }
-        }
-
-        if (debug_mem_type_idx == UINT32_MAX) THROW("Failed to find suitable memory type for debug overlay image");
-
-        VkMemoryRequirements mem_reqs;
-        vkGetImageMemoryRequirements(device, shared_image, &mem_reqs);
-
-        VkPhysicalDeviceMemoryProperties mem_props;
-        vkGetPhysicalDeviceMemoryProperties(phys_dev, &mem_props);
-        uint32_t mem_type_idx = UINT32_MAX;
-        for (uint32_t i = 0; i < mem_props.memoryTypeCount; ++i) {
-                if ((mem_reqs.memoryTypeBits & (1 << i)) && (mem_props.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)) {
-                        mem_type_idx = i;
-                        break;
-                }
-        }
-        if (mem_type_idx == UINT32_MAX) THROW("Failed to find suitable memory type");
-
-        VkExportMemoryAllocateInfo exp_mem_info = {
-                .sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO,
-                .pNext = 0,
-                .handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT_KHR
-        };
-
-        VkMemoryAllocateInfo alloc_info = {
-                .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-                .pNext = &exp_mem_info,
-                .allocationSize = mem_reqs.size,
-                .memoryTypeIndex = mem_type_idx
-        };
-
-        if (vkAllocateMemory(device, &alloc_info, 0, &shared_memory) != VK_SUCCESS) 
-                THROW("Failed to allocate shared memory");
-        if (vkBindImageMemory(device, shared_image, shared_memory, 0) != VK_SUCCESS) 
-                THROW("Failed to bind image memory");
-
+        /* export render image memory to cuda */
         VkMemoryGetFdInfoKHR get_fd_info = {
                 .sType = VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR,
                 .pNext = 0,
@@ -345,12 +385,9 @@ static inline void _create_swapchain_and_shared_image(void) {
                 .handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT_KHR
         };
 
-        PFN_vkGetMemoryFdKHR vkGetMemoryFdKHR = 
-                (PFN_vkGetMemoryFdKHR) vkGetDeviceProcAddr(device, "vkGetMemoryFdKHR");
-        if (!vkGetMemoryFdKHR) THROW("Failed to get vkGetMemoryFdKHR");
-
         int fd = -1;
-        if (vkGetMemoryFdKHR(device, &get_fd_info, &fd) != VK_SUCCESS) THROW("Failed to get memory FD");
+        if (vkGetMemoryFdKHR(device, &get_fd_info, &fd) != VK_SUCCESS) 
+                THROW("Failed to get memory FD");
 
         cudaExternalMemoryHandleDesc cuda_ext_mem_desc = {};
         cuda_ext_mem_desc.type = cudaExternalMemoryHandleTypeOpaqueFd;
@@ -362,6 +399,7 @@ static inline void _create_swapchain_and_shared_image(void) {
 
         close(fd);
 
+        /* rgba format for cuda: x=r, y=g, z=b, w=a */
         cudaExternalMemoryMipmappedArrayDesc mipmap_desc = {};
         mipmap_desc.extent = make_cudaExtent(RENDER_WIDTH, RENDER_HEIGHT, 1);
         mipmap_desc.formatDesc = cudaCreateChannelDesc(8, 8, 8, 8, cudaChannelFormatKindUnsigned);
@@ -372,24 +410,17 @@ static inline void _create_swapchain_and_shared_image(void) {
                 != cudaSuccess) THROW("Failed to get CUDA mipmapped array");
 
         cudaArray_t cuda_array = 0;
-        if (cudaGetMipmappedArrayLevel(&cuda_array, cuda_mipmap, 0) != cudaSuccess) THROW("Failed to get CUDA array level");
+        if (cudaGetMipmappedArrayLevel(&cuda_array, cuda_mipmap, 0) != cudaSuccess) 
+                THROW("Failed to get CUDA array level");
 
         cudaResourceDesc res_desc = {};
         res_desc.resType = cudaResourceTypeArray;
         res_desc.res.array.array = cuda_array;
 
-        if (cudaCreateSurfaceObject(&cuda_surface, &res_desc) != cudaSuccess) THROW("Failed to create CUDA surface object");
+        if (cudaCreateSurfaceObject(&cuda_surface, &res_desc) != cudaSuccess) 
+                THROW("Failed to create CUDA surface object");
 
-        VkMemoryAllocateInfo debug_alloc_info = {
-                .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-                .pNext = &exp_mem_info,
-                .allocationSize = debug_mem_reqs.size,
-                .memoryTypeIndex = debug_mem_type_idx   
-        };
-
-        if (vkAllocateMemory(device, &debug_alloc_info, 0, &debug_overlay_memory) != VK_SUCCESS) THROW("Failed to allocate debug overlay memory");
-        if (vkBindImageMemory(device, debug_overlay_image, debug_overlay_memory, 0) != VK_SUCCESS) THROW("Failed to bind debug overlay image memory");
-
+        /* export debug overlay memory to cuda */
         VkMemoryGetFdInfoKHR debug_get_fd_info = {
                 .sType = VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR,
                 .pNext = 0,
@@ -398,7 +429,8 @@ static inline void _create_swapchain_and_shared_image(void) {
         };
 
         int debug_fd = -1;
-        if (vkGetMemoryFdKHR(device, &debug_get_fd_info, &debug_fd) != VK_SUCCESS) THROW("Failed to get debug overlay memory FD");
+        if (vkGetMemoryFdKHR(device, &debug_get_fd_info, &debug_fd) != VK_SUCCESS) 
+                THROW("Failed to get debug overlay memory FD");
 
         cudaExternalMemoryHandleDesc debug_cuda_ext_mem_desc = {};
         debug_cuda_ext_mem_desc.type = cudaExternalMemoryHandleTypeOpaqueFd;
@@ -415,21 +447,23 @@ static inline void _create_swapchain_and_shared_image(void) {
         debug_mipmap_desc.formatDesc = cudaCreateChannelDesc(8, 8, 8, 8, cudaChannelFormatKindUnsigned);
         debug_mipmap_desc.numLevels = 1;
         debug_mipmap_desc.flags = cudaArraySurfaceLoadStore;
-        debug_mipmap_desc.formatDesc = cudaCreateChannelDesc(8, 8, 8, 8, cudaChannelFormatKindUnsigned);
-        debug_mipmap_desc.numLevels = 1;
-        debug_mipmap_desc.flags = cudaArraySurfaceLoadStore;
 
-        if (cudaExternalMemoryGetMappedMipmappedArray(&debug_overlay_mipmap, debug_overlay_ext_mem, &debug_mipmap_desc) != cudaSuccess) 
-        THROW("Failed to get debug overlay CUDA mipmapped array");
+        if (cudaExternalMemoryGetMappedMipmappedArray(&debug_overlay_mipmap, debug_overlay_ext_mem, 
+                &debug_mipmap_desc) != cudaSuccess) 
+                THROW("Failed to get debug overlay CUDA mipmapped array");
 
         cudaArray_t debug_cuda_array = 0;
-        if (cudaGetMipmappedArrayLevel(&debug_cuda_array, debug_overlay_mipmap, 0) != cudaSuccess) THROW("Failed to get debug overlay CUDA array level");
+        if (cudaGetMipmappedArrayLevel(&debug_cuda_array, debug_overlay_mipmap, 0) != cudaSuccess) 
+                THROW("Failed to get debug overlay CUDA array level");
 
         cudaResourceDesc debug_res_desc = {};
         debug_res_desc.resType = cudaResourceTypeArray;
         debug_res_desc.res.array.array = debug_cuda_array;
 
-        if (cudaCreateSurfaceObject(&debug_overlay_surface, &debug_res_desc) != cudaSuccess) THROW("Failed to create debug overlay CUDA surface object");
+        if (cudaCreateSurfaceObject(&debug_overlay_surface, &debug_res_desc) != cudaSuccess) 
+                THROW("Failed to create debug overlay CUDA surface object");
+        
+        DEBUG_PRINT("Render image: RGBA, Swapchain: format %d (BGRA auto-converted by GPU)\n", surface_format.format);
 }
 
 

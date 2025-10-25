@@ -1,6 +1,6 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
-#include "tex.cuh"
+#include "tex.h"
 #include "../res/res.h"
 
 static tex_tileline_t* devtilemap;

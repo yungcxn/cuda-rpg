@@ -1,7 +1,7 @@
 
 #include <cuda.h>
 #include <cuda_runtime.h>
-#include "spriteinfo.cuh"
+#include "spriteinfo.h"
 #include "../def.h"
 
 static spriteinfo_t* spriteinfo_devtable;

@@ -1,7 +1,7 @@
 
 #include <cuda.h>
 #include <cuda_runtime.h>
-#include "tileinfo.cuh"
+#include "tileinfo.h"
 #include "../def.h"
 
 static tileinfo_t* tileinfo_devtable;

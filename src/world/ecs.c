@@ -3,7 +3,7 @@
 #include <immintrin.h>
 #include "../def.h"
 #include "../types/vec.h"
-#include "../render/tileinfo.cuh"
+#include "../render/tileinfo.h"
 #include "ecs.h"
 
 typedef void (*ecs_op_func_t)(ecs_instr_t* instr);
@@ -86,7 +86,7 @@ ecs_t* ecs_get() {
 }
 
 static inline void _check_instr_cache_type_constraints() {
-        if (sizeof(ecs_instr_t) != sizeof(__m256i)) THROW("ecs_instr_t must be 256-bit for AVX2 processing");
+        if (sizeof(ecs_instr_t) != sizeof(__m256i)) THROW("ecs_instr_t must be 256-bit for AVX2 processing, size is %zu bits", sizeof(ecs_instr_t) * 8);
 }
 
 static inline void _alloc() {

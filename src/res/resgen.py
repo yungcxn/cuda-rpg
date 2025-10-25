@@ -66,3 +66,4 @@ res_h_lines.append("#endif")
 
 res_h_path.write_text("\n".join(res_h_lines))
 os.chdir(oldpath)
+print(f"Generated {res_h_path}")

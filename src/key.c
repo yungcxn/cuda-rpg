@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "render/render.cuh"
+#include "render/render.h"
 #include "def.h"
 
 const uint32_t key_x11_to_code_table[256] = { /* since the XKeys go usually up to 0xFF */
