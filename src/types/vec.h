@@ -5,8 +5,6 @@
 #include <stdlib.h>
 #include "../def.h"
 
-#define VEC2_NULL {0,0}
-
 typedef struct __attribute__((packed)) {
         float32_t x;
         float32_t y;

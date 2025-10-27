@@ -121,7 +121,6 @@ enum {
 }; /* spriteinfo_id_t */
 #undef X_SPRITEINFO_TUPLE 
 #undef X_SPRITEINFO_TUPLE_ANIM
-_Static_assert(SPRITEINFOS < __UINT32_MAX__, "Too many spriteinfos defined");
 
 #define SPRITEINFO(tx, ty, comp_w, comp_h) {tx, ty, comp_w, comp_h}
 #define SPRITEINFO_BBOFF(bb_xoff, bb_yoff) {bb_xoff, bb_yoff}

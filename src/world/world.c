@@ -1,5 +1,7 @@
 
 #include "world.h"
+#include "impl/worldmain.h"
+#include "impl/worldhome.h"
 #include "ecs.h"
 
 
@@ -15,33 +17,77 @@ static const world_updatefunc_t world_updatefunc_table[] = {
 };
 #undef X_WORLD
 
+static world_ctx_t* world_ctx;
 static world_updatefunc_t world_ctx_updatefunc;
 
-static ecs_t* ecs_instance;
-static world_ctx_t* world_ctx;
+static inline world_ctx_t* _world_ctx_alloc() {
+    world_ctx_t* w = (world_ctx_t*)malloc(sizeof(world_ctx_t));
+    if (!w) THROW("Failed to allocate memory for world context");
+    return w;
+}
 
 void world_setup() {
-        ecs_setup();
-        ecs_instance = ecs_get();
+        world_ctx = _world_ctx_alloc();
+        world_ctx->ecs_handle = ecs_handled_create();
+        world_ctx_firstload(WORLD_DEFAULT_ID);
 }
 
 void world_cleanup() {
-        ecs_cleanup();
+        ecs_handled_destroy(&(world_ctx->ecs_handle));
+        free(world_ctx);
 }
 
-void world_ctx_update(float32_t dt) {
-        ecs_update(dt);
-        world_ctx_updatefunc(dt);
+static inline void _world_free_tilelayer(world_map_tilelayer_t* layer) {
+        if (layer) {
+                if (layer->tiles) free(layer->tiles);
+                free(layer);
+        }
 }
 
-void world_ctx_load() {
-        /* TODO: ecs cleanup */
-        if (world_ctx_loadfunc) free(world_ctx);
-        world_ctx = world_loadfunc_table[WORLDMAIN]();
-        world_ctx_updatefunc = world_updatefunc_table[WORLDMAIN];
+static inline void _world_free_tilelayers(world_map_tiles_t* tiles) {
+        if (tiles) {
+                _world_free_tilelayer(tiles->bg);
+                _world_free_tilelayer(tiles->main);
+                _world_free_tilelayer(tiles->on_main);
+                _world_free_tilelayer(tiles->on_lense);
+                free(tiles);
+        }
+}
+
+static inline void _world_free_borders(world_map_borders_t* borders) {
+        if (borders) {
+                free(borders->borders);
+                free(borders);
+        }
+}
+
+static inline void _world_freeall(world_t* world) {
+        if (world) {
+                _world_free_tilelayers(world->tiles);
+                _world_free_borders(world->borders);
+                free(world);
+        }
+}
+
+/* destroy all world points to and what that points to aso... but zero out ecs */
+static inline void _world_ctx_reset() {
+        ecs_zero_out(&(world_ctx->ecs_handle));
+        _world_freeall(world_ctx->world);
+        world_ctx->world = 0;
+}
+
+void world_ctx_firstload(world_id_t world_id) {
+        world_ctx = world_loadfunc_table[world_id]();
+        world_ctx_updatefunc = world_updatefunc_table[world_id];
+}
+
+void world_ctx_load(world_id_t world_id) {
+        _world_ctx_reset();
+        world_ctx_firstload(world_id);
 }
 
 void world_ctx_update(float32_t dt) {
         if (!world_ctx_updatefunc) THROW("No world update function set");
-        world_ctx_updatefunc(dt);
+        world_ctx_updatefunc(world_ctx, dt);
+        ecs_update(&(world_ctx->ecs_handle), dt);
 }

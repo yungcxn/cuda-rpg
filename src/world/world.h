@@ -5,6 +5,7 @@
 #include "../def.h"
 #include "../types/vec.h"
 #include "../render/tileinfo.h"
+#include "ecs.h"
 
 
 #define X_WORLDLIST \
@@ -19,9 +20,9 @@ typedef enum {
 } world_id_t;
 #undef X_WORLD
 
+#define WORLD_DEFAULT_ID 0
+
 typedef vec2u32_t world_border_t;
-typedef world_ctx_t* (*world_loadfunc_t)();
-typedef void* (*world_updatefunc_t)(float32_t dt);
 
 typedef struct {
         tileinfo_id4_t* tiles; /* size is 64bit */
@@ -44,18 +45,21 @@ typedef struct {
 typedef struct {
         world_map_tiles_t* tiles;
         world_map_borders_t* borders;
-        vec2f32_t pos_zero;
-} world_t; /* note: these need to dynamically loaded */
-           /*       so no full table                 */
+} world_t; /* note: these need to dynamically loaded   */
+           /*       so no full table OF ALL SUBFIELDS! */
 
 typedef struct {
-        world_t world;
+        world_t* world;
+        ecs_handle_t ecs_handle;
         /* event handling ?! TODO */
 } world_ctx_t; /* current world context */
+
+typedef world_t* (*world_loadfunc_t)(ecs_handle_t* ecs_handle);
+typedef void (*world_updatefunc_t)(world_ctx_t* world_ctx, float32_t dt);
 
 void world_setup();
 void world_cleanup();
 void world_ctx_update(float dt);
-void world_ctx_load(world_loadfunc_t loadfunc); /* unload func is prv*/
+void world_ctx_load(world_id_t world_id); /* unload func is prv*/
 
 #endif
