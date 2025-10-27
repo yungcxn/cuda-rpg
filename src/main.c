@@ -35,7 +35,7 @@ int main(void) {
 
         render_setup();
         key_setup(); /* after render; needs window/display */
-        world_ctx_setup();
+        world_setup();
 
         float32_t last_time = _get_time_seconds();
 
@@ -50,7 +50,7 @@ int main(void) {
                 last_time = _get_time_seconds();
         }
 
-        world_ctx_cleanup();
+        world_cleanup();
         key_cleanup();
         render_cleanup();
         return 0;

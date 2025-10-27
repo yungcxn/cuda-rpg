@@ -169,7 +169,7 @@ static inline void _create_swapchain_and_shared_image(void) {
                 .arrayLayers = 1,
                 .samples = VK_SAMPLE_COUNT_1_BIT,
                 .tiling = VK_IMAGE_TILING_OPTIMAL,
-                .usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+                .usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
                 .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
                 .queueFamilyIndexCount = 0,
                 .pQueueFamilyIndices = 0,
@@ -191,7 +191,7 @@ static inline void _create_swapchain_and_shared_image(void) {
                 .arrayLayers = 1,
                 .samples = VK_SAMPLE_COUNT_1_BIT,
                 .tiling = VK_IMAGE_TILING_OPTIMAL,
-                .usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+                .usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
                 .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
                 .queueFamilyIndexCount = 0,
                 .pQueueFamilyIndices = 0,
@@ -797,7 +797,6 @@ static inline void _post_render(uint32_t image_index, cudaSurfaceObject_t surf, 
         };
         vkCmdClearColorImage(cmd, swapchain_images[image_index], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clear_color, 1, &range);
 
-        const uint8_t scale = (uint8_t) min((float) render_extent.width / (float) RENDER_WIDTH, (float) render_extent.height / (float) RENDER_HEIGHT);
         VkImageBlit blit_region = {
                 .srcSubresource = {
                         .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
@@ -814,7 +813,7 @@ static inline void _post_render(uint32_t image_index, cudaSurfaceObject_t surf, 
                 },
                 .dstOffsets = {
                         {render_offset.x, render_offset.y, 0},
-                        {render_offset.x + RENDER_WIDTH*scale, render_offset.y + RENDER_HEIGHT*scale, 1}
+                        {render_offset.x + (int32_t)render_extent.width, render_offset.y + (int32_t)render_extent.height, 1}
                 }
         };
         vkCmdBlitImage(
@@ -943,6 +942,7 @@ void render(void) {
 
         _pre_render(&img_idx, &surf, &res);
 
+        kernel_clear_overlay(debug_overlay_surface, current_extent.width, current_extent.height);
         kernel_draw(surf, RENDER_WIDTH, RENDER_HEIGHT);
 
         _post_render(img_idx, surf, &res);
