@@ -22,14 +22,14 @@ static const float32_t tileinfo_animlen_hosttable[TILEINFOS] = {
 #undef X_TILEINFO_TUPLE
 #undef X_TILEINFO_TUPLE_ANIM
 
-static void _devtable_alloc() {
+static inline void _devtable_alloc() {
         cudamem_alloc(&tileinfo_devtable, TILEINFOS * sizeof(tileinfo_t));
         if (sizeof(tileinfo_hosttable) != TILEINFOS * sizeof(tileinfo_t)) THROW("Texture devtable size mismatch");
         if (sizeof(tileinfo_hosttable) / sizeof(tileinfo_t) > TILEINFOS) THROW("Too many tileinfos for devtable");
         cudamem_copy(tileinfo_devtable, tileinfo_hosttable, TILEINFOS * sizeof(tileinfo_t), 1);
 }
 
-static void _animlen_devtable_alloc() {
+static inline void _animlen_devtable_alloc() {
         cudamem_alloc(&tileinfo_animlen_devtable, TILEINFOS * sizeof(float32_t));
         if (sizeof(tileinfo_animlen_hosttable) != TILEINFOS * sizeof(float32_t)) THROW("Animation length devtable size mismatch");
         if (sizeof(tileinfo_animlen_hosttable) / sizeof(float32_t) > TILEINFOS) THROW("Too many tileinfos for devtable");
@@ -43,12 +43,12 @@ void tileinfo_devtables_init() {
 
 }
 
-static void _animlen_devtable_free() {
+static inline void _animlen_devtable_free() {
         cudamem_free(tileinfo_animlen_devtable);
         tileinfo_animlen_devtable = 0;
 }
 
-static void _devtable_free() {
+static inline void _devtable_free() {
         cudamem_free(tileinfo_devtable);
         tileinfo_devtable = 0;
 }

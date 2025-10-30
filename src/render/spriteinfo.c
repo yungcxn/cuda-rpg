@@ -31,21 +31,21 @@ static const spriteinfo_bboff_t spriteinfo_bboff_hosttable[SPRITEINFOS] = {
 #undef X_SPRITEINFO_TUPLE
 #undef X_SPRITEINFO_TUPLE_ANIM
 
-static void _devtable_alloc() {
+static inline void _devtable_alloc() {
         cudamem_alloc(&spriteinfo_devtable, SPRITEINFOS * sizeof(spriteinfo_t));
         if (sizeof(spriteinfo_hosttable) != SPRITEINFOS * sizeof(spriteinfo_t)) THROW("Texture devtable size mismatch");
         if (sizeof(spriteinfo_hosttable) / sizeof(spriteinfo_t) > SPRITEINFOS) THROW("Too many spriteinfos for devtable");
         cudamem_alloc(spriteinfo_devtable, spriteinfo_hosttable, SPRITEINFOS * sizeof(spriteinfo_t), 1);
 }
 
-static void _animlen_devtable_alloc() {
+static inline void _animlen_devtable_alloc() {
         cudamem_alloc(&spriteinfo_animlen_devtable, SPRITEINFOS * sizeof(float32_t));
         if (sizeof(spriteinfo_animlen_hosttable) != SPRITEINFOS * sizeof(float32_t)) THROW("Animation length devtable size mismatch");
         if (sizeof(spriteinfo_animlen_hosttable) / sizeof(float32_t) > SPRITEINFOS) THROW("Too many spriteinfos for devtable");
         cudamem_copy(spriteinfo_animlen_devtable, spriteinfo_animlen_hosttable, SPRITEINFOS * sizeof(float32_t), 1);
 }
 
-static void _bboff_devtable_alloc() {
+static inline void _bboff_devtable_alloc() {
         cudamem_alloc(&spriteinfo_bboff_devtable, SPRITEINFOS * sizeof(spriteinfo_bboff_t));
         if (sizeof(spriteinfo_bboff_hosttable) != SPRITEINFOS * sizeof(spriteinfo_bboff_t)) THROW("Bounding box offset devtable size mismatch");
         if (sizeof(spriteinfo_bboff_hosttable) / sizeof(spriteinfo_bboff_t) > SPRITEINFOS) THROW("Too many spriteinfos for devtable");
@@ -58,17 +58,17 @@ void spriteinfo_devtables_init() {
         _bboff_devtable_alloc();
 }
 
-static void _animlen_devtable_free() {
+static inline void _animlen_devtable_free() {
         cudamem_free(spriteinfo_animlen_devtable);
         spriteinfo_animlen_devtable = 0;
 }
 
-static void _devtable_free() {
+static inline void _devtable_free() {
         cudamem_free(spriteinfo_devtable);
         spriteinfo_devtable = 0;
 }
 
-static void _bboff_devtable_free() {
+static inline void _bboff_devtable_free() {
         cudamem_free(spriteinfo_bboff_devtable);
         spriteinfo_bboff_devtable = 0;
 }
