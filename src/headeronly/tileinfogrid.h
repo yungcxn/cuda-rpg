@@ -27,7 +27,6 @@
 #define X_TILEINFO_COL_10(TILE_MACRO, id, row, tx, ty, ...) \
         X_TILEINFO_COL_9(TILE_MACRO, id, row, tx, ty, ##__VA_ARGS__) TILE_MACRO(id##_9_##row, tx+9, ty+row, ##__VA_ARGS__)
 
-// --- Generic row macros ---
 #define X_TILEINFO_ROW(N, TILE_MACRO, id, tx, ty, A, ...) \
     X_TILEINFO_ROW_##N(TILE_MACRO, id, tx, ty, A, ##__VA_ARGS__)
 

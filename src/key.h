@@ -9,9 +9,9 @@
 #define KEY_OFF(field, code) (!KEY_ON(field, code))
 
 typedef enum {
-        KEY_INPUT_W = 0,
-        KEY_INPUT_A = 1,
-        KEY_INPUT_S = 2,
+        KEY_INPUT_W = 0, /* layout better for quick math ops */
+        KEY_INPUT_S = 1,
+        KEY_INPUT_A = 2,
         KEY_INPUT_D = 3,
         KEY_INPUT_ESC = 4,
         KEY_INPUT_SPACE = 5,

@@ -37,47 +37,43 @@ void world_cleanup() {
         free(world_ctx);
 }
 
-static inline void _world_free_tilelayer(world_map_tilelayer_t* layer) {
-        if (layer) {
-                if (layer->tiles) free(layer->tiles);
-                free(layer);
-        }
+static inline void _world_destroy_devdata(world_map_devdata_t* tiles) {
+        if (!tiles) THROW("No tilelayers to free");
+        free(tiles->bg);
+        free(tiles->main);
+        free(tiles->on_main);
+        free(tiles->fg);
+        tiles->bg = 0;
+        tiles->main = 0;
+        tiles->on_main = 0;
+        tiles->fg = 0;
+        tiles->dim.width4 = 0;
+        tiles->dim.height4 = 0;
 }
 
-static inline void _world_free_tilelayers(world_map_tiles_t* tiles) {
-        if (tiles) {
-                _world_free_tilelayer(tiles->bg);
-                _world_free_tilelayer(tiles->main);
-                _world_free_tilelayer(tiles->on_main);
-                _world_free_tilelayer(tiles->on_lense);
-                free(tiles);
-        }
+static inline void _world_destroy_beam_points(world_map_beams_t* beams) {
+        if (!beams) THROW("No beamdata to free");
+        free(beams->beam_tls);
+        free(beams->beam_brs);
+        beams->beam_tls = 0;
+        beams->beam_brs = 0;
+        beams->beam_count = 0;
 }
 
-static inline void _world_free_borders(world_map_borders_t* borders) {
-        if (borders) {
-                free(borders->borders);
-                free(borders);
-        }
-}
-
-static inline void _world_freeall(world_t* world) {
-        if (world) {
-                _world_free_tilelayers(world->tiles);
-                _world_free_borders(world->borders);
-                free(world);
-        }
+static inline void _world_destroy(world_t* world) {
+        if (!world) THROW("No world to destroy");
+        _world_destroy_devdata(&(world->devtiles));
+        _world_destroy_beam_points(&(world->beams));
 }
 
 /* destroy all world points to and what that points to aso... but zero out ecs */
 static inline void _world_ctx_reset() {
         ecs_zero_out(&(world_ctx->ecs_handle));
-        _world_freeall(world_ctx->world);
-        world_ctx->world = 0;
+        _world_destroy(&(world_ctx->world));
 }
 
 void world_ctx_firstload(world_id_t world_id) {
-        world_ctx = world_loadfunc_table[world_id]();
+        world_loadfunc_table[world_id](&world_ctx);
         world_ctx_updatefunc = world_updatefunc_table[world_id];
 }
 
@@ -90,4 +86,55 @@ void world_ctx_update(float32_t dt) {
         if (!world_ctx_updatefunc) THROW("No world update function set");
         world_ctx_updatefunc(world_ctx, dt);
         ecs_update(&(world_ctx->ecs_handle), dt);
+}
+
+extern inline world_map_devdata_t world_create_devdata_t(
+        tileinfo_id4_t* hostbg, tileinfo_id4_t* hostmain, tileinfo_id4_t* hostonmain, tileinfo_id4_t* hostfg,
+        uint32_t width4, uint32_t height4
+) {
+        world_map_devdata_t data;
+        if (hostbg) {
+                cudamem_alloc(&data.bg, width4 * height4 * sizeof(tileinfo_id4_t));
+                cudamem_copy(data.bg, hostbg, width4 * height4 * sizeof(tileinfo_id4_t), 1);
+        } else {
+                data.bg = 0;
+        }
+
+        if (hostmain) {
+                cudamem_alloc(&data.main, width4 * height4 * sizeof(tileinfo_id4_t));
+                cudamem_copy(data.main, hostmain, width4 * height4 * sizeof(tileinfo_id4_t), 1);
+        } else {
+                data.main = 0;
+        }
+
+        if (hostonmain) {
+                cudamem_alloc(&data.on_main, width4 * height4 * sizeof(tileinfo_id4_t));
+                cudamem_copy(data.on_main, hostonmain, width4 * height4 * sizeof(tileinfo_id4_t), 1);
+        } else {
+                data.on_main = 0;
+        }
+
+        if (hostfg) {
+                cudamem_alloc(&data.fg, width4 * height4 * sizeof(tileinfo_id4_t));
+                cudamem_copy(data.fg, hostfg, width4 * height4 * sizeof(tileinfo_id4_t), 1);
+        } else {
+                data.fg = 0;
+        }
+
+        data.dim.width4 = width4;
+        data.dim.height4 = height4;
+        return data;
+}
+
+extern inline world_map_beams_t world_create_map_beams(vec2f32_t* host_tls, vec2f32_t* host_brs, uint32_t beam_count) {
+        if (!host_tls || !host_brs) THROW("No beam data provided");
+        world_map_beams_t beams;
+        beams.beam_tls = (vec2f32_t*)malloc(beam_count * sizeof(vec2f32_t));
+        if (!beams.beam_tls) THROW("Failed to allocate memory for beam tls");
+        beams.beam_brs = (vec2f32_t*)malloc(beam_count * sizeof(vec2f32_t));
+        if (!beams.beam_brs) THROW("Failed to allocate memory for beam brs");
+        memcpy(beams.beam_tls, host_tls, beam_count * sizeof(vec2f32_t));
+        memcpy(beams.beam_brs, host_brs, beam_count * sizeof(vec2f32_t));
+        beams.beam_count = beam_count;
+        return beams;
 }

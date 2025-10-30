@@ -2,11 +2,16 @@
 #define ECS_H
 
 #include <stdint.h>
-#include "../types/vec.h"
+#include "../headeronly/vec.h"
 #include "../render/spriteinfo.h"
 
 #define ECS_MAX_ENTITIES 1024
-#define ECS_ENTITY_DEADMASK 0x8000000000000000ULL
+#define ECS_ENTITY_DEADMASK BIT64(63)
+
+#ifndef STATE_HI_DEAD
+        #define STATE_HI_DEAD(state_hi) ((state_hi) | ECS_ENTITY_DEADMASK)
+#endif
+
 #define ECS_IS_ENTITY_DEAD(state_hi) ((state_hi) & ECS_ENTITY_DEADMASK)
 #define ECS_GARBAGE_REMOVAL_THRESHOLD 100  /* number of killed entities to trigger garbage removal */
 #define _UINT32_IN_AVX2REG 8
@@ -160,7 +165,7 @@ void ecs_exec_state_and_avx2(ecs_handle_t* ecs_handle, ecs_exec_state_anddata_av
 
 ecs_handle_t ecs_handled_create(void);
 void ecs_handled_destroy(ecs_handle_t* ecs_handle);
-void ecs_update(ecs_handle_t* ecs_handle, float dt);
+void ecs_update(ecs_handle_t* ecs_handle, float32_t dt);
 void ecs_zero_out(ecs_handle_t* ecs_handle);
 
 

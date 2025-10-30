@@ -1,12 +1,8 @@
 #ifndef TILEINFO_H
 #define TILEINFO_H
 
-#include "../types/vec.h"
-#include "./util/tileinfogrid.h"
-
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include "../headeronly/vec.h"
+#include "../headeronly/tileinfogrid.h"
 
 #define TILEINFO_ANIM_SENTINEL -1.0f
 
@@ -20,9 +16,10 @@ extern "C" {
         X_TILEINFO_TUPLE_ANIM(tileinfo_id, 0, 0, TILEINFO_ANIM_SENTINEL)
 
 #define TILEINFO_LIST \
-        X_TILEINFO_TUPLE(TILEINFO_ID_GRASS_A, 0, 0) \
-        X_TILEINFO_TUPLE(TILEINFO_ID_GRASS_B, 1, 0) \
-        X_TILEINFO_TUPLE(TILEINFO_ID_GRASS_C, 2, 0) \
+        X_TILEINFO_TUPLE(TILEINFO_VOID, 0, 0) \
+        X_TILEINFO_TUPLE(TILEINFO_ID_GRASS_A, 1, 0) \
+        X_TILEINFO_TUPLE(TILEINFO_ID_GRASS_B, 2, 2) \
+        X_TILEINFO_TUPLE(TILEINFO_ID_GRASS_C, 2, 1) \
         \
         X_TILEINFO_TUPLE(TILEINFO_ID_GRASS_PATH_V, 3, 0) \
         X_TILEINFO_TUPLE(TILEINFO_ID_GRASS_PATH_H, 3, 1) \
@@ -98,9 +95,5 @@ void   tileinfo_devtables_init();
 void   tileinfo_devtables_cleanup();
 tileinfo_t* tileinfo_get_devtable();
 float32_t* tileinfo_get_animlen_devtable();
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif

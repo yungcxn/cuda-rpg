@@ -32,4 +32,12 @@ typedef _Float64 float64_t;
 #define DEBUG_PRINT(fmt, ...) ((void)0)
 #endif
 
+#define NIBBLEPACK(hi, lo) ((((hi) & 0xF) << 4) | ((lo) & 0xF))
+
+#define BIT8(n)  ((uint8_t)(1U << (n)))
+#define BIT16(n) ((uint16_t)(1U << (n)))
+#define BIT32(n) ((uint32_t)(1U << (n)))
+#define BIT64(n) ((uint64_t)(1ULL << (n)))
+
+
 #endif

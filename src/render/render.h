@@ -1,7 +1,7 @@
 #ifndef RENDER_CUH
 #define RENDER_CUH
 
-#include "../types/vec.h"
+#include "../headeronly/vec.h"
 #include <X11/Xlib.h>
 
 #ifdef __cplusplus

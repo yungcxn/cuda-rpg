@@ -11,7 +11,7 @@
 #include "cudakernel.cuh"
 #include "spriteinfo.h"
 #include "tileinfo.h"
-#include "../types/vec.h"
+#include "../headeronly/vec.h"
 
 #define RENDER_WIDTH 256
 #define RENDER_HEIGHT 144

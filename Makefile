@@ -11,8 +11,8 @@ CFLAGS += -DDEBUG -g
 NVCCFLAGS += -DDEBUG -g
 endif
 
-SRC_C = $(wildcard src/*.c) $(wildcard src/world/*.c)
-SRC_CU = $(wildcard src/render/*.cu)
+SRC_C = $(wildcard src/*.c) $(wildcard src/world/*.c) $(wildcard src/world/*.c) $(wildcard src/render/*.c)
+SRC_CU = $(wildcard src/render/*.cu) $(wildcard src/render/util/*.cu) 
 OBJ_C = $(SRC_C:.c=.o)
 OBJ_CU = $(SRC_CU:.cu=.o)
 TARGET = main

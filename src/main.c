@@ -4,7 +4,7 @@
 
 #include "key.h"
 #include "def.h"
-#include "types/vec.h"
+#include "headeronly/vec.h"
 
 #include "world/world.h"
 

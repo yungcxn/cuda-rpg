@@ -35,6 +35,12 @@ static inline void vec2f32_add(vec2f32_t* a, vec2f32_t* b) {
         a->y += b->y;
 }
 
+static inline void vecf32_normalize(vec2f32_t* v) {
+        float32_t len_sq = v->x * v->x + v->y * v->y;
+        float32_t inv_len = 1.0f / sqrtf(len_sq + (len_sq == 0.0f));
+        v->x *= inv_len;
+        v->y *= inv_len;
+}
 
 
 #endif
