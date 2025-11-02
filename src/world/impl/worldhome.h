@@ -1,7 +1,6 @@
 #ifndef WORLDHOME_H
 #define WORLDHOME_H
 
-#include "worldhome.h"
 #include "../world.h"
 
 void worldhome_load(world_ctx_t* world_ctx);

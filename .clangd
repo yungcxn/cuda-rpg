@@ -1,0 +1,52 @@
+# --- CUDA-specific settings ---
+If:
+  PathMatch: .*\.cuh?
+CompileFlags:
+  Add:
+    - "-x"
+    - "cuda"
+    - "-Wno-unknown-cuda-version"
+    - "-Xclang=-fcuda-allow-variadic-functions"
+Diagnostics:
+  Suppress:
+    - "variadic_device_fn"
+    - "attributes_not_allowed"
+
+---
+
+# --- General indexing & memory settings ---
+Index:
+  Background: true
+  Threads: 4              # limit to reduce memory spikes
+  SystemSymbols: true
+  Ignore:
+    - "build"
+    - "third_party"
+    - "external"
+    - "src/res/res.h"
+  LimitResults: 5000
+  LimitReferences: 10000
+
+---
+
+# --- Precompiled headers (PCH) settings ---
+CompileFlags:
+  Add:
+    - "-Winvalid-pch"
+  PCHStorage: disk         # reduce RAM usage
+
+---
+
+# --- Template recursion & analysis depth ---
+CompileFlags:
+  Add:
+    - "-ftemplate-depth=128"
+    - "-fconstexpr-depth=256"
+
+---
+
+# --- Additional compiler warnings adjustments ---
+Diagnostics:
+  Suppress:
+    - "unused-parameter"
+    - "unused-variable"

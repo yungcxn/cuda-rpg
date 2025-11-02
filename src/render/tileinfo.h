@@ -12,8 +12,8 @@
 /* X_TILEINFO_GRIDTUPLE(id, tx, ty, A, B) */
 /* X_TILEINFO_GRIDTUPLE_ANIM(id, tx, ty, A, B, frame) */
 
-#define X_TILEINFO_TUPLE_ANIM_SENTINEL(tileinfo_id) \
-        X_TILEINFO_TUPLE_ANIM(tileinfo_id, 0, 0, TILEINFO_ANIM_SENTINEL)
+#define X_TILEINFO_TUPLE_ANIM_SENTINEL(tileinfo_id, animlen) \
+        X_TILEINFO_TUPLE_ANIM(tileinfo_id, 0, 0, (float32_t) -animlen)
 
 #define TILEINFO_LIST \
         X_TILEINFO_TUPLE(TILEINFO_VOID, 0, 0) \
@@ -45,7 +45,7 @@
         X_TILEINFO_TUPLE_ANIM(TILEINFO_ID_WATER_0, 10, 1, 0.3f) \
         X_TILEINFO_TUPLE_ANIM(TILEINFO_ID_WATER_1, 10, 2, 0.3f) \
         X_TILEINFO_TUPLE_ANIM(TILEINFO_ID_WATER_2, 10, 3, 0.3f) \
-        X_TILEINFO_TUPLE_ANIM_SENTINEL(TILEINFO_ID_WATER_3) \
+        X_TILEINFO_TUPLE_ANIM_SENTINEL(TILEINFO_ID_WATER_3, 3) \
         \
         X_TILEINFO_TUPLE(TILEINFO_ID_GRASS_WATER_TL, 9, 3) \
         X_TILEINFO_TUPLE(TILEINFO_ID_GRASS_WATER_L, 9, 4) \
@@ -59,12 +59,12 @@
         X_TILEINFO_GRIDTUPLE_ANIM(TILEINFO_ID_FLOWER_0, 0, 11, 1, 2, 0.5f) \
         X_TILEINFO_GRIDTUPLE_ANIM(TILEINFO_ID_FLOWER_1, 1, 11, 1, 2, 0.5f) \
         X_TILEINFO_GRIDTUPLE_ANIM(TILEINFO_ID_FLOWER_2, 2, 11, 1, 2, 0.5f) \
-        X_TILEINFO_TUPLE_ANIM_SENTINEL(TILEINFO_ID_FLOWER_3) \
+        X_TILEINFO_TUPLE_ANIM_SENTINEL(TILEINFO_ID_FLOWER_3, 3) \
         \
         X_TILEINFO_TUPLE_ANIM(TILEINFO_ID_DUSTBALL_0, 3, 11, 0.2f) \
         X_TILEINFO_TUPLE_ANIM(TILEINFO_ID_DUSTBALL_1, 3, 12, 0.2f) \
         X_TILEINFO_TUPLE_ANIM(TILEINFO_ID_DUSTBALL_2, 3, 13, 0.2f) \
-        X_TILEINFO_TUPLE_ANIM_SENTINEL(TILEINFO_ID_DUSTBALL_3) \
+        X_TILEINFO_TUPLE_ANIM_SENTINEL(TILEINFO_ID_DUSTBALL_3, 3) \
         \
         X_TILEINFO_GRIDTUPLE(TILEINFO_ID_TREE, 4, 11, 2, 4) \
         X_TILEINFO_GRIDTUPLE(TILEINFO_ID_TREEPACK_A, 6, 11, 2, 4) \
@@ -72,7 +72,6 @@
 
 /* the tileinfo_id_t corresponds to the index in the tileinfo table */
 typedef uint16_t tileinfo_id_t;
-typedef uint64_t tileinfo_id4_t;
 
 typedef struct __attribute__((packed)) {
         uint16_t tx;
@@ -91,9 +90,11 @@ enum {
 
 #define TILEINFO(tx, ty) {tx, ty}
 
-void   tileinfo_devtables_init();
-void   tileinfo_devtables_cleanup();
-tileinfo_t* tileinfo_get_devtable();
-float32_t* tileinfo_get_animlen_devtable();
+tileinfo_t* tileinfo_devtable_create(void);
+void tileinfo_devtable_destroy(tileinfo_t* tileinfo_devtable);
+float32_t* tileinfo_animlen_devtable_create(void);
+void tileinfo_animlen_devtable_destroy(float32_t* tileinfo_animlen_devtable);
+float32_t* tileinfo_animtimer_devcache_create(void);
+void tileinfo_animtimer_devcache_destroy(float32_t* tileinfo_animtimer_devcache);
 
 #endif

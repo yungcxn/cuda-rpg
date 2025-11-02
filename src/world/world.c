@@ -1,8 +1,10 @@
+#include <string.h>
 
 #include "world.h"
-#include "impl/worldmain.h"
-#include "impl/worldhome.h"
+#include "impl/worldmain.h" /* IWYU pragma: keep for X_WORLD */
+#include "impl/worldhome.h" /* IWYU pragma: keep for X_WORLD */
 #include "ecs.h"
+#include "../render/util/ccuda.h"
 
 
 #define X_WORLD(name_id, loadfunc, updatefunc) loadfunc,
@@ -17,7 +19,6 @@ static const world_updatefunc_t world_updatefunc_table[] = {
 };
 #undef X_WORLD
 
-static world_ctx_t* world_ctx;
 static world_updatefunc_t world_ctx_updatefunc;
 
 static inline world_ctx_t* _world_ctx_alloc() {
@@ -26,15 +27,10 @@ static inline world_ctx_t* _world_ctx_alloc() {
     return w;
 }
 
-void world_setup() {
-        world_ctx = _world_ctx_alloc();
-        world_ctx->ecs_handle = ecs_handled_create();
-        world_ctx_firstload(WORLD_DEFAULT_ID);
-}
-
-void world_cleanup() {
+void world_ctx_destroy(world_ctx_t* world_ctx) {
         ecs_handled_destroy(&(world_ctx->ecs_handle));
         free(world_ctx);
+        player_destroy(world_ctx->player);
 }
 
 static inline void _world_destroy_devdata(world_map_devdata_t* tiles) {
@@ -47,8 +43,8 @@ static inline void _world_destroy_devdata(world_map_devdata_t* tiles) {
         tiles->main = 0;
         tiles->on_main = 0;
         tiles->fg = 0;
-        tiles->dim.width4 = 0;
-        tiles->dim.height4 = 0;
+        tiles->dim.width = 0;
+        tiles->dim.height = 0;
 }
 
 static inline void _world_destroy_beam_points(world_map_beams_t* beams) {
@@ -67,66 +63,76 @@ static inline void _world_destroy(world_t* world) {
 }
 
 /* destroy all world points to and what that points to aso... but zero out ecs */
-static inline void _world_ctx_reset() {
+static inline void _world_ctx_reset(world_ctx_t* world_ctx) {
         ecs_zero_out(&(world_ctx->ecs_handle));
         _world_destroy(&(world_ctx->world));
 }
 
-void world_ctx_firstload(world_id_t world_id) {
-        world_loadfunc_table[world_id](&world_ctx);
+void world_ctx_firstload(world_ctx_t* world_ctx, world_id_t world_id) {
+        world_loadfunc_table[world_id](world_ctx);
         world_ctx_updatefunc = world_updatefunc_table[world_id];
 }
 
-void world_ctx_load(world_id_t world_id) {
-        _world_ctx_reset();
-        world_ctx_firstload(world_id);
+void world_ctx_load(world_ctx_t* world_ctx, world_id_t world_id) {
+        _world_ctx_reset(world_ctx);
+        world_ctx_firstload(world_ctx, world_id);
 }
 
-void world_ctx_update(float32_t dt) {
+void world_ctx_update(world_ctx_t* world_ctx, key_inputfield_t pressed_keys, float32_t dt) {
         if (!world_ctx_updatefunc) THROW("No world update function set");
         world_ctx_updatefunc(world_ctx, dt);
+        player_update(world_ctx->player, pressed_keys, dt);
         ecs_update(&(world_ctx->ecs_handle), dt);
+
 }
 
-extern inline world_map_devdata_t world_create_devdata_t(
-        tileinfo_id4_t* hostbg, tileinfo_id4_t* hostmain, tileinfo_id4_t* hostonmain, tileinfo_id4_t* hostfg,
-        uint32_t width4, uint32_t height4
+world_ctx_t* world_ctx_create() {
+        world_ctx_t* world_ctx = _world_ctx_alloc();
+        world_ctx->ecs_handle = ecs_handled_create();
+        world_ctx->player = player_create();
+        world_ctx_firstload(world_ctx, WORLD_DEFAULT_ID);
+        return world_ctx;
+}
+
+world_map_devdata_t world_create_devdata_t(
+        tileinfo_id_t* hostbg, tileinfo_id_t* hostmain, tileinfo_id_t* hostonmain, 
+        tileinfo_id_t* hostfg, uint32_t width, uint32_t height
 ) {
         world_map_devdata_t data;
         if (hostbg) {
-                cudamem_alloc(&data.bg, width4 * height4 * sizeof(tileinfo_id4_t));
-                cudamem_copy(data.bg, hostbg, width4 * height4 * sizeof(tileinfo_id4_t), 1);
+                ccuda_malloc(&data.bg, width * height * sizeof(tileinfo_id_t));
+                ccuda_copy(data.bg, hostbg, width * height * sizeof(tileinfo_id_t), 1);
         } else {
                 data.bg = 0;
         }
 
         if (hostmain) {
-                cudamem_alloc(&data.main, width4 * height4 * sizeof(tileinfo_id4_t));
-                cudamem_copy(data.main, hostmain, width4 * height4 * sizeof(tileinfo_id4_t), 1);
+                ccuda_malloc(&data.main, width * height * sizeof(tileinfo_id_t));
+                ccuda_copy(data.main, hostmain, width * height * sizeof(tileinfo_id_t), 1);
         } else {
                 data.main = 0;
         }
 
         if (hostonmain) {
-                cudamem_alloc(&data.on_main, width4 * height4 * sizeof(tileinfo_id4_t));
-                cudamem_copy(data.on_main, hostonmain, width4 * height4 * sizeof(tileinfo_id4_t), 1);
+                ccuda_malloc(&data.on_main, width * height * sizeof(tileinfo_id_t));
+                ccuda_copy(data.on_main, hostonmain, width * height * sizeof(tileinfo_id_t), 1);
         } else {
                 data.on_main = 0;
         }
 
         if (hostfg) {
-                cudamem_alloc(&data.fg, width4 * height4 * sizeof(tileinfo_id4_t));
-                cudamem_copy(data.fg, hostfg, width4 * height4 * sizeof(tileinfo_id4_t), 1);
+                ccuda_malloc(&data.fg, width * height * sizeof(tileinfo_id_t));
+                ccuda_copy(data.fg, hostfg, width * height * sizeof(tileinfo_id_t), 1);
         } else {
                 data.fg = 0;
         }
 
-        data.dim.width4 = width4;
-        data.dim.height4 = height4;
+        data.dim.width = width;
+        data.dim.height = height;
         return data;
 }
 
-extern inline world_map_beams_t world_create_map_beams(vec2f32_t* host_tls, vec2f32_t* host_brs, uint32_t beam_count) {
+world_map_beams_t world_create_map_beams(vec2f32_t* host_tls, vec2f32_t* host_brs, uint32_t beam_count) {
         if (!host_tls || !host_brs) THROW("No beam data provided");
         world_map_beams_t beams;
         beams.beam_tls = (vec2f32_t*)malloc(beam_count * sizeof(vec2f32_t));

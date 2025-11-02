@@ -2,20 +2,33 @@
 #define TILE_H
 
 #include <stdint.h>
-#include "../headeronly/vec.h"
+#include "../res/res.h"
 
 #define TEX_COLOURS 16
 #define TEX_BITS_PER_COLOR 4 /* log_2 16 */
-#define TEX_PIXELS_PER_64BIT_CHUNK (64 / TEX_BITS_PER_COLOR) /* 16 */
+#define TEX_PIXELS_PER_64BIT_CHUNK 16
+#define TEX_TILEWIDTH 16
+#define TEX_TILEHEIGHT 16
 #define TEX_64BIT_CHUNKS_PER_TILE TEX_PIXELS_PER_64BIT_CHUNK
 
-#define TEX_TILEMAP_GET_LINE0_IDX(tileidx, tileidy) \
-        (((tileidy) * TEX_64BIT_CHUNKS_PER_TILE) + (tileidx))
+#define TEX_TILEMAP_WIDTH RES_MOTHERSHEET_WIDTH_TILES
+#define TEX_TILEMAP_HEIGHT RES_MOTHERSHEET_HEIGHT_TILES
 
+typedef uint8_t tex_palref_t; /* 0-15 */
 typedef uint64_t tex_tileline_t;
 typedef uint32_t tex_realrgba_t; /* 0xRRGGBBAA */
 
-void tex_devdata_init();
-void tex_devdata_cleanup();
+#define TEX_TILELINE_INDEX(tile_y, tile_x, liny) \
+        ( ((tile_y) * TEX_TILEMAP_WIDTH + (tile_x)) * TEX_TILEHEIGHT + (liny) )
+
+#define TEX_GET_PALREF_FROM_TEXLINE(texline, left_to_right_num) \
+        ((tex_palref_t)(texline >> (((15 - (left_to_right_num)) << 2))) & 0xFULL)
+
+tex_tileline_t* tex_devtilemap_create();
+tex_realrgba_t* tex_devpalette_create();
+
+void tex_devtilemap_destroy(tex_tileline_t* devtilemap);
+void tex_devpalette_destroy(tex_realrgba_t* devpalette);
+
 
 #endif

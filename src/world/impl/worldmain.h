@@ -1,7 +1,6 @@
 #ifndef WORLDMAIN_H
 #define WORLDMAIN_H
 
-#include "worldmain.h"
 #include "../world.h"
 
 void worldmain_load(world_ctx_t* world_ctx);

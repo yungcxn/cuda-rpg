@@ -1,0 +1,16 @@
+#ifndef GAMEMETA_H
+#define GAMEMETA_H
+
+#define WIDTH 256
+#define HEIGHT 144
+#define WIDTH_TILES 16
+#define HEIGHT_TILES 9
+#define PADDED_WIDTH 272
+#define PADDED_HEIGHT 160
+#define PADDEDWIDTH_TILES 17
+#define PADDEDHEIGHT_TILES 10
+#define WINDOW_WIDTH 1920
+#define WINDOW_HEIGHT 1080
+#define TITLE "RPG"
+
+#endif

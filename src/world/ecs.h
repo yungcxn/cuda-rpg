@@ -8,16 +8,11 @@
 #define ECS_MAX_ENTITIES 1024
 #define ECS_ENTITY_DEADMASK BIT64(63)
 
-#ifndef STATE_HI_DEAD
-        #define STATE_HI_DEAD(state_hi) ((state_hi) | ECS_ENTITY_DEADMASK)
-#endif
-
-#define ECS_IS_ENTITY_DEAD(state_hi) ((state_hi) & ECS_ENTITY_DEADMASK)
+#define ECS_ISDEAD(pos1) ((pos1).x == -1.0f && (pos1).y == -1.0f)
 #define ECS_GARBAGE_REMOVAL_THRESHOLD 100  /* number of killed entities to trigger garbage removal */
 #define _UINT32_IN_AVX2REG 8
 
 #define ECS_ENTITYTYPE_LIST \
-        X_ENTITYTYPE_TUPLE(ECS_ENTITY_PLAYER, entityplayer_update) \
         X_ENTITYTYPE_TUPLE(ECS_ENTITY_ZOMBIE, entityzombie_update)
 
 #define X_ENTITYTYPE_TUPLE(name_id, updatefunc) name_id,
@@ -30,6 +25,11 @@ typedef enum {
 typedef void (*ecs_entity_updatefunc_t)(uint32_t entity_id, float32_t dt);
 
 typedef struct __attribute__((aligned(32))) {
+        spriteinfo_id_t spriteinfo[ECS_MAX_ENTITIES]; /* + 32 => 400 */
+        float32_t spritetimers[ECS_MAX_ENTITIES]; /* + 32 => 432 */
+} ecs_shared_t; /* this is shared between dev and host */
+
+typedef struct __attribute__((aligned(32))) {
         uint64_t state_hi[ECS_MAX_ENTITIES]; /* 64 */
         uint64_t state_lo[ECS_MAX_ENTITIES]; /* + 64 => 128 */
         vec2f32_t pos1[ECS_MAX_ENTITIES]; /* + 64 => 192 */
@@ -38,7 +38,7 @@ typedef struct __attribute__((aligned(32))) {
         /* we handle sprites on GPU */
         ecs_entitytype_t entitytype[ECS_MAX_ENTITIES]; /* + 32 => 352 */
         uint32_t root_entity_id[ECS_MAX_ENTITIES]; /* + 32 => 384 */
-        spriteinfo_id_t spriteinfo[ECS_MAX_ENTITIES]; /* + 32 => 400 */
+        ecs_shared_t* shared; /* + 64 => 432 */
 } ecs_t;
 
 typedef struct __attribute__((aligned(32))) {
@@ -167,6 +167,8 @@ ecs_handle_t ecs_handled_create(void);
 void ecs_handled_destroy(ecs_handle_t* ecs_handle);
 void ecs_update(ecs_handle_t* ecs_handle, float32_t dt);
 void ecs_zero_out(ecs_handle_t* ecs_handle);
-
-
+ecs_shared_t* ecs_shared_devbuf_create(void);
+void ecs_shared_devbuf_destroy(ecs_shared_t* devbuf);
+vec2f32_t* ecs_pos1_devbuf_create(void);
+void ecs_pos1_devbuf_destroy(vec2f32_t* devbuf);
 #endif

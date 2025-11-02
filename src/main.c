@@ -3,14 +3,14 @@
 #include <time.h>
 
 #include "key.h"
-#include "def.h"
-#include "headeronly/vec.h"
+#include "headeronly/def.h"
 
 #include "world/world.h"
 
+#include "render/vulkan.h"
 #include "render/render.h"
 
-
+world_ctx_t* world_ctx;
 
 static float32_t _get_time_seconds(void) {
         struct timespec ts;
@@ -20,22 +20,14 @@ static float32_t _get_time_seconds(void) {
 
 static inline void _update(float32_t dt) {
         key_inputfield_t pressed = key_get_pressed();
-        float32_t camspeed = 10.0f * dt; /* 10 pixels per second */
-        /* 
-        if (KEY_ON(pressed, KEY_INPUT_W)) render_offset_cam(VEC2F(0.0f, -camspeed));
-        if (KEY_ON(pressed, KEY_INPUT_S)) render_offset_cam(VEC2F(0.0f, camspeed));
-        if (KEY_ON(pressed, KEY_INPUT_A)) render_offset_cam(VEC2F(-camspeed, 0.0f));
-        if (KEY_ON(pressed, KEY_INPUT_D)) render_offset_cam(VEC2F(camspeed, 0.0f));
-        */
-        world_ctx_update(dt);
+        world_ctx_update(world_ctx, pressed, dt);
 }
 
-
 int main(void) {
-
-        render_setup();
+        vulkan_setup();
+        render_data_setup();
         key_setup(); /* after render; needs window/display */
-        world_setup();
+        world_ctx = world_ctx_create();
 
         float32_t last_time = _get_time_seconds();
 
@@ -45,13 +37,17 @@ int main(void) {
                 last_time = now;
 
                 key_poll_event();
+
                 _update(dt);
+
                 render();
+
                 last_time = _get_time_seconds();
         }
 
-        world_cleanup();
+        world_ctx_destroy(world_ctx);
         key_cleanup();
-        render_cleanup();
+        vulkan_cleanup();
+        render_data_cleanup();
         return 0;
 }

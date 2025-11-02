@@ -1,12 +1,14 @@
 
 #include <stdint.h>
 #include <immintrin.h>
-#include "../def.h"
-#include "../headeronly/vec.h"
-#include "../render/tileinfo.h"
+#include <string.h>
+
 #include "ecs.h"
-#include "entityimpl/entityplayer.h"
-#include "entityimpl/entityzombie.h"
+
+#include "../headeronly/def.h"
+#include "../headeronly/vec.h"
+#include "entityimpl/entityzombie.h" /* IWYU pragma: keep for X_ENTITYTYPE_TUPLE */
+#include "../render/util/ccuda.h"
 
 #define X_ENTITYTYPE_TUPLE(name_id, updatefunc) updatefunc,
 static const ecs_entity_updatefunc_t ecs_entity_updatefunc_table[] = {
@@ -25,7 +27,8 @@ void ecs_exec_spawn(ecs_handle_t* restrict ecs_handle, ecs_exec_spawndata_t* res
         ecs_instance->velocity[entity_id] = (vec2f32_t){0.0f, 0.0f};
         ecs_instance->entitytype[entity_id] = data->entitytype;
         ecs_instance->root_entity_id[entity_id] = data->root_entity_id;
-        ecs_instance->spriteinfo[entity_id] = data->spriteinfo;
+        ecs_instance->shared->spriteinfo[entity_id] = data->spriteinfo;
+        ecs_instance->shared->spritetimers[entity_id] = 0.0f;
 }
 
 void ecs_exec_spawn_avx2(ecs_handle_t* restrict ecs_handle, ecs_exec_spawndata_avx2_t* restrict data) {
@@ -42,7 +45,8 @@ void ecs_exec_spawn_avx2(ecs_handle_t* restrict ecs_handle, ecs_exec_spawndata_a
         __m256i entitytype_vec = _mm256_load_si256((__m256i*)&data->entitytype[0]);
         __m256i root_entity_id_vec = _mm256_load_si256((__m256i*)&data->root_entity_id[0]);
         __m256i spriteinfo_vec = _mm256_load_si256((__m256i*)&data->spriteinfo[0]);
-        
+        __m256 spritetimers_vec = _mm256_setzero_ps();
+
         __m256i state_zero = _mm256_setzero_si256();
         __m256 velocity_zero = _mm256_setzero_ps();
         
@@ -58,13 +62,14 @@ void ecs_exec_spawn_avx2(ecs_handle_t* restrict ecs_handle, ecs_exec_spawndata_a
         _mm256_store_ps((float32_t*)&ecs_instance->velocity[aligned_entitystartid + 4], velocity_zero);
         _mm256_store_si256((__m256i*)&ecs_instance->entitytype[aligned_entitystartid], entitytype_vec);
         _mm256_store_si256((__m256i*)&ecs_instance->root_entity_id[aligned_entitystartid], root_entity_id_vec);
-        _mm256_store_si256((__m256i*)&ecs_instance->spriteinfo[aligned_entitystartid], spriteinfo_vec);
+        _mm256_store_si256((__m256i*)&ecs_instance->shared->spriteinfo[aligned_entitystartid], spriteinfo_vec);
+        _mm256_store_ps((float32_t*)&ecs_instance->shared->spritetimers[aligned_entitystartid], spritetimers_vec);
 }
 
 void ecs_exec_kill(ecs_handle_t* restrict ecs_handle, ecs_exec_killdata_t* restrict data) {
         uint32_t entity_id = data->entity_id;
         if (entity_id >= ecs_handle->living_count) THROW("Invalid entity ID to kill: %u", entity_id);
-        ecs_handle->instance->state_hi[entity_id] |= ECS_ENTITY_DEADMASK;
+        ecs_handle->instance->pos1[entity_id] = (vec2f32_t){-1.0f, -1.0f};
         ecs_handle->dead_count++;
 }
 
@@ -73,11 +78,11 @@ void ecs_exec_kill_avx2(ecs_handle_t* restrict ecs_handle, ecs_exec_killdata_avx
         uint32_t entity_startid8x = data->entity_startid8x;
         if (entity_startid8x % _UINT32_IN_AVX2REG != 0) THROW("ECS entity start ID not aligned to AVX2 register size");
         if (entity_startid8x + _UINT32_IN_AVX2REG > ecs_handle->living_count) THROW("Invalid entity ID to kill AVX2: %u", entity_startid8x);
-        __m256i deadmask = _mm256_set1_epi64x(ECS_ENTITY_DEADMASK);
         for (uint32_t i = 0; i < 2; i++) {
-                __m256i state_hi = _mm256_load_si256((__m256i*)&ecs_instance->state_hi[entity_startid8x + i * 4]);
-                state_hi = _mm256_or_si256(state_hi, deadmask);
-                _mm256_store_si256((__m256i*)&ecs_instance->state_hi[entity_startid8x + i * 4], state_hi);
+                __m256 pos_neg1 = _mm256_set1_ps(-1.0f);
+                _mm256_store_ps((float32_t*)&ecs_instance->pos1[entity_startid8x + i * 4], pos_neg1);
+                __m256 pos_neg2 = _mm256_set1_ps(-1.0f);
+                _mm256_store_ps((float32_t*)&ecs_instance->pos2[entity_startid8x + i * 4], pos_neg2);
         }
         ecs_handle->dead_count += _UINT32_IN_AVX2REG;
 }
@@ -191,10 +196,45 @@ void ecs_exec_state_and_avx2(ecs_handle_t* restrict ecs_handle, ecs_exec_state_a
         }
 }
 
+static inline ecs_shared_t* _ecs_shared_alloc(void) {
+        ecs_shared_t* ecs_shared_instance;
+        ccuda_mallochost((void**)&ecs_shared_instance, sizeof(ecs_shared_t));
+        if (!ecs_shared_instance) THROW("Failed to allocate ECS shared data");
+        memset(ecs_shared_instance, 0, sizeof(ecs_shared_t));
+        return ecs_shared_instance;
+}
+
+ecs_shared_t* ecs_shared_devbuf_create(void) {
+        ecs_shared_t* devbuf;
+        ccuda_malloc((void**)&devbuf, sizeof(ecs_shared_t));
+        if (!devbuf) THROW("Failed to allocate ECS shared devbuf");
+        return devbuf;
+}
+
+void ecs_shared_devbuf_destroy(ecs_shared_t* devbuf) {
+        ccuda_free(devbuf);
+}
+
+vec2f32_t* ecs_pos1_devbuf_create(void) {
+        vec2f32_t* devbuf;
+        ccuda_malloc((void**)&devbuf, sizeof(vec2f32_t) * ECS_MAX_ENTITIES);
+        if (!devbuf) THROW("Failed to allocate ECS pos1 devbuf");
+        return devbuf;
+}
+
+void ecs_pos1_devbuf_destroy(vec2f32_t* devbuf) {
+        cudamem_free(devbuf);
+}
+
 static inline ecs_t* _ecs_alloc(void) {
         ecs_t* ecs_instance = (ecs_t*) aligned_alloc(32, sizeof(ecs_t));
         if (!ecs_instance) THROW("Failed to allocate ECS");
         memset(ecs_instance, 0, sizeof(ecs_t));
+        __m256 neg_one = _mm256_set1_ps(-1.0f);
+        for (uint32_t i = 0; i < ECS_MAX_ENTITIES; i += 8) {
+                _mm256_store_ps((float32_t*)&ecs_instance->pos1[i], neg_one);
+        }
+        ecs_instance->shared = _ecs_shared_alloc();
         return ecs_instance;
 }
 
@@ -208,6 +248,7 @@ ecs_handle_t ecs_handled_create(void) {
 }
 
 void ecs_handled_destroy(ecs_handle_t* ecs_handle) {
+        ccuda_freehost(ecs_handle->instance->shared);
         free(ecs_handle->instance);
         ecs_handle->instance = 0;
         ecs_handle->living_count = 0;
@@ -246,16 +287,16 @@ static inline void _remove_garbage(ecs_handle_t* restrict ecs_handle) {
         ecs_t* ecs_instance = ecs_handle->instance;
         uint32_t j = 0;
         for (uint32_t i = 0; i < ecs_handle->living_count; i++) {
-                uint64_t state_hi_i = ecs_handle->instance->state_hi[i];
-                if (!ECS_IS_ENTITY_DEAD(state_hi_i)) {
-                        ecs_instance->state_hi[j] = state_hi_i;
+                if (!ECS_ISDEAD(ecs_instance->pos1[i])) {
+                        ecs_instance->state_hi[j] = ecs_instance->state_hi[i];
                         ecs_instance->state_lo[j] = ecs_instance->state_lo[i];
                         ecs_instance->pos1[j] = ecs_instance->pos1[i];
                         ecs_instance->pos2[j] = ecs_instance->pos2[i];
                         ecs_instance->velocity[j] = ecs_instance->velocity[i];
                         ecs_instance->entitytype[j] = ecs_instance->entitytype[i];
                         ecs_instance->root_entity_id[j] = ecs_instance->root_entity_id[i];
-                        ecs_instance->spriteinfo[j] = ecs_instance->spriteinfo[i];
+                        ecs_instance->shared->spriteinfo[j] = ecs_instance->shared->spriteinfo[i];
+                        ecs_instance->shared->spritetimers[j] = ecs_instance->shared->spritetimers[i];
                         j++;
                 }
         }
@@ -263,20 +304,25 @@ static inline void _remove_garbage(ecs_handle_t* restrict ecs_handle) {
         ecs_handle->dead_count = 0;
 }
 
-
-void ecs_update(ecs_handle_t* restrict ecs_handle, float32_t dt) {
+static inline void _update_entity_logic(ecs_handle_t* restrict ecs_handle, float32_t dt) {
         ecs_t* ecs_instance = ecs_handle->instance;
-        if (ecs_handle->dead_count > ECS_GARBAGE_REMOVAL_THRESHOLD) _remove_garbage(ecs_handle);
         for (uint32_t i = 0; i < ecs_handle->living_count; i++) {
-                if (ECS_IS_ENTITY_DEAD(ecs_instance->state_hi[i])) continue;
-                if (ecs_instance->entitytype[i] >= ECS_ENTITYTYPE_COUNT) THROW("Invalid entity type for entity ID %u: %u", i, ecs_instance->entitytype[i]);
+                if (ECS_ISDEAD(ecs_instance->pos1[i])) continue;
+                if (ecs_instance->entitytype[i] >= ECS_ENTITYTYPE_COUNT) 
+                        THROW("Invalid entity type for entity ID %u: %u", i, ecs_instance->entitytype[i]);
                 ecs_entity_updatefunc_table[ecs_instance->entitytype[i]](i, dt);
         }
-        _update_positions(ecs_handle, dt);
+}
+
+void ecs_update(ecs_handle_t* restrict ecs_handle, float32_t dt) {
+        if (ecs_handle->dead_count > ECS_GARBAGE_REMOVAL_THRESHOLD) _remove_garbage(ecs_handle);
+        _update_entity_logic(ecs_handle, dt); /* 1.: may apply e.g. velocity or set sprite */
+        _update_positions(ecs_handle, dt);    /* 2.: update positions based on velocity */
 }
 
 void ecs_zero_out(ecs_handle_t* restrict ecs_handle) {
         ecs_t* ecs_instance = ecs_handle->instance;
+        memset(ecs_instance->shared, 0, sizeof(ecs_shared_t));
         memset(ecs_instance, 0, sizeof(ecs_t));
         ecs_handle->living_count = 0;
         ecs_handle->dead_count = 0;

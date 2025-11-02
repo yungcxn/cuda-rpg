@@ -1,0 +1,95 @@
+[
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-std=c23",
+      "-Wall",
+      "-Wextra",
+      "-Wpedantic",
+      "-O3",
+      "-mavx2",
+      "-mfma",
+      "-c",
+      "-o",
+      "src/world/world.o",
+      "src/world/world.c"
+    ],
+    "directory": "/home/can/Documents/cuda-rpg",
+    "file": "/home/can/Documents/cuda-rpg/src/world/world.c",
+    "output": "/home/can/Documents/cuda-rpg/src/world/world.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-std=c23",
+      "-Wall",
+      "-Wextra",
+      "-Wpedantic",
+      "-O3",
+      "-mavx2",
+      "-mfma",
+      "-c",
+      "-o",
+      "src/render/spriteinfo.o",
+      "src/render/spriteinfo.c"
+    ],
+    "directory": "/home/can/Documents/cuda-rpg",
+    "file": "/home/can/Documents/cuda-rpg/src/render/spriteinfo.c",
+    "output": "/home/can/Documents/cuda-rpg/src/render/spriteinfo.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-std=c23",
+      "-Wall",
+      "-Wextra",
+      "-Wpedantic",
+      "-O3",
+      "-mavx2",
+      "-mfma",
+      "-c",
+      "-o",
+      "src/world/ecs.o",
+      "src/world/ecs.c"
+    ],
+    "directory": "/home/can/Documents/cuda-rpg",
+    "file": "/home/can/Documents/cuda-rpg/src/world/ecs.c",
+    "output": "/home/can/Documents/cuda-rpg/src/world/ecs.o"
+  },
+  {
+    "arguments": [
+      "/usr/local/cuda/bin/nvcc",
+      "-std=c++17",
+      "-I/usr/include/vulkan",
+      "-I/usr/include",
+      "-I/usr/local/cuda/include",
+      "-O3",
+      "-c",
+      "-o",
+      "src/render/render.o",
+      "src/render/render.cu"
+    ],
+    "directory": "/home/can/Documents/cuda-rpg",
+    "file": "/home/can/Documents/cuda-rpg/src/render/render.cu",
+    "output": "/home/can/Documents/cuda-rpg/src/render/render.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-std=c23",
+      "-Wall",
+      "-Wextra",
+      "-Wpedantic",
+      "-O3",
+      "-mavx2",
+      "-mfma",
+      "-c",
+      "-o",
+      "src/render/tex.o",
+      "src/render/tex.c"
+    ],
+    "directory": "/home/can/Documents/cuda-rpg",
+    "file": "/home/can/Documents/cuda-rpg/src/render/tex.c",
+    "output": "/home/can/Documents/cuda-rpg/src/render/tex.o"
+  }
+]

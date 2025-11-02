@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include "player.h"
-#include "../../def.h"
+#include "../../headeronly/def.h"
+#include "../../render/util/ccuda.h"
 
 #define PLAYER_BB_WIDTH 1
 #define PLAYER_BB_HEIGHT 1
@@ -12,12 +13,10 @@
 #define STATE_LO_RUNNING_DOWN  BIT64(KEY_INPUT_S)
 #define STATE_LO_RUNNING_LEFT  BIT64(KEY_INPUT_A)
 #define STATE_LO_RUNNING_RIGHT BIT64(KEY_INPUT_D)
-#ifndef STATE_HI_DEAD
-        #define STATE_HI_DEAD          BIT64(63)
-#endif
 
-player_t* player_init(void) {
+player_t* player_create(void) {
         player_t* p = (player_t*)malloc(sizeof(player_t));
+        ccuda_mallochost((void**)&(p->shared), sizeof(player_shared_t));
         if (!p) THROW("Failed to allocate memory for player");
         
         p->state_hi = 0;
@@ -25,17 +24,19 @@ player_t* player_init(void) {
         p->pos1 = (vec2f32_t){0.0f, 0.0f};
         p->pos2 = (vec2f32_t){PLAYER_BB_WIDTH, PLAYER_BB_HEIGHT};
         p->velocity = (vec2f32_t){0.0f, 0.0f};
-        p->spriteinfo = SPRITEINFO_ID_PLAYER_IDLE_U;
+        p->shared->spriteinfo = SPRITEINFO_ID_PLAYER_IDLE_U;
+        p->shared->spritetimer = 0.0f;
 
         return p;
 }
 
 void player_destroy(player_t* player) {
         if (!player) THROW("No player to destroy");
+        ccuda_freehost(player->shared);
         free(player);
 }
 
-void player_setpos(player_t* player, vec2f32_t pos1, key_inputfield_t pressed_keys) {
+void player_setpos(player_t* player, vec2f32_t pos1) {
         if (!player) THROW("No player to set position for");
         player->pos1 = pos1;
         player->pos2 = (vec2f32_t){pos1.x + PLAYER_BB_WIDTH, pos1.y + PLAYER_BB_HEIGHT};
@@ -67,4 +68,15 @@ void player_update(player_t* player, float32_t dt, key_inputfield_t pressed_keys
 
         /* Update position based on velocity and delta time */
         _apply_velocity(player, dt);
+}
+
+player_shared_t* player_shared_devbuf_create(void) {
+        player_shared_t* devbuf;
+        ccuda_malloc((void**)&devbuf, sizeof(player_shared_t));
+        return devbuf;
+}
+
+void player_shared_devbuf_destroy(player_shared_t* devbuf) {
+        ccuda_free(devbuf);
+        devbuf = 0;
 }

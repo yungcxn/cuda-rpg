@@ -6,8 +6,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "render/render.h"
-#include "def.h"
+#include "render/vulkan.h"
+#include "headeronly/def.h"
 
 const uint32_t key_x11_to_code_table[256] = { /* since the XKeys go usually up to 0xFF */
         [XK_W] = KEY_INPUT_W,
@@ -30,8 +30,8 @@ static key_inputfield_t current_typestarts = 0;
 static key_inputfield_t _pressed_before = 0;
 
 void key_setup() {
-        x_display = render_get_xdisplay();
-        x_window  = render_get_xwindow();
+        x_display = vulkan_get_xdisplay();
+        x_window  = vulkan_get_xwindow();
         if (!x_display || !x_window) THROW("Failed to get X11 Display or Window from renderer");
 
         /* ensure the window is selecting key events */

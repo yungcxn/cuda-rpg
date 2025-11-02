@@ -8,3 +8,5 @@
 **/main
 .vscode
 .vscode/*
+.src_hash
+.cache

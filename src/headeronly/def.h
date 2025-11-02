@@ -1,11 +1,8 @@
 #ifndef DEF_H
 #define DEF_H
 
-#include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
-#include <string.h>
-
+#include <stdio.h> /* IWYU pragma: keep since stderr needs this */
 
 #ifdef __CUDACC__ /* nvcc with c++?? */
 typedef float  float32_t;
@@ -39,5 +36,13 @@ typedef _Float64 float64_t;
 #define BIT32(n) ((uint32_t)(1U << (n)))
 #define BIT64(n) ((uint64_t)(1ULL << (n)))
 
+typedef enum {
+        STATUS_OK = 0,
+        STATUS_ERR_NOMEM = 1,
+        STATUS_ERR_NULLPTR = 2,
+        STATUS_ERR_OOB = 3,
+        STATUS_ERR_CUDA = 4,
+        STATUS_ERR_UNDEFINED = 255
+} status_t;
 
 #endif
