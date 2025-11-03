@@ -5,6 +5,7 @@
 #include <surface_indirect_functions.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <cfloat>
 
 #include "render.h"
 #include "vulkan.h"
@@ -20,6 +21,7 @@
 
 #define RENDER_DEFAULTBLOCKSIZE 256
 #define RENDER_OFFSCREEN_SPRITEMARGIN 10 /* tiles */
+#define RENDER_TRANSLATED_PLAYER_ENTITYID (ECS_MAX_ENTITIES)
 
 static tex_tileline_t* tex_devtilemap;
 static tex_realrgba_t* tex_devpalette;
@@ -44,6 +46,9 @@ static cudaTextureObject_t texObj_spriteinfo_devtable;           /* spriteinfo_t
 static cudaTextureObject_t texObj_spriteinfo_animlen_devtable;   /* float32_t* */
 static cudaTextureObject_t texObj_spriteinfo_bboff_devtable;     /* spriteinfo_bboff_t* */
 
+static cudaArray_t sprite_depth_array;
+static cudaSurfaceObject_t sprite_depth_surf;
+
 /* pipeline:                                                                                                */
 /* world:                                                                                                   */
 /*   world_map_devdata_t (tileinfo_id_t) ->tileinfo_devtable ->tex_devtilemap ->tex_devpalette             */
@@ -53,6 +58,7 @@ static cudaTextureObject_t texObj_spriteinfo_bboff_devtable;     /* spriteinfo_b
 static vec2f32_t render_hostcamerapos = {0.0f, 0.0f};
 
 void render_data_setup(void) {
+
         /* here we create all dev data to access */
         /* aswell as buffers for devreleases */
         tex_devtilemap = tex_devtilemap_create();
@@ -119,6 +125,13 @@ void render_data_setup(void) {
         devecs = ecs_shared_devbuf_create();
         devecs_pos1 = ecs_pos1_devbuf_create();
         devrenderable_ids = cuarray_create<uint32_t>(ECS_MAX_ENTITIES + 1); /* +1 for player */
+        cudaChannelFormatDesc depth_desc = cudaCreateChannelDesc<float32_t>();
+        cudaMallocArray(&sprite_depth_array, &depth_desc, WIDTH, HEIGHT, cudaArraySurfaceLoadStore);
+        
+        resDesc = {};
+        resDesc.resType = cudaResourceTypeArray;
+        resDesc.res.array.array = sprite_depth_array;
+        cudaCreateSurfaceObject(&sprite_depth_surf, &resDesc);
 }
 
 void render_data_cleanup(void) {
@@ -157,33 +170,30 @@ __global__ void _kernel_collect_renderable_sprites(
 ) {
         /* id corresponds to entityid */
         uint32_t idx = blockIdx.x * blockDim.x + threadIdx.x;
-        if (idx == ECS_MAX_ENTITIES) { /* player thread */
-                const vec2f32_t pos = player_pos;
 
-                if ((pos.x == -1.0f && pos.y == -1.0f) 
-                || pos.x < (cam.x - RENDER_OFFSCREEN_SPRITEMARGIN) 
-                || pos.x > (cam.x + RENDER_OFFSCREEN_SPRITEMARGIN + WIDTH_TILES) 
-                || pos.y < (cam.y - RENDER_OFFSCREEN_SPRITEMARGIN) 
-                || pos.y > (cam.y + RENDER_OFFSCREEN_SPRITEMARGIN + HEIGHT_TILES)) {
-                        return; /* out of render bounds */
-                }
-
-                if (devplayer->spriteinfo == SPRITEINFO_ID_NONE) return;
+        vec2f32_t pos;
+        spriteinfo_id_t id;
+        if (idx == RENDER_TRANSLATED_PLAYER_ENTITYID) { /* player thread */
+                pos = player_pos;
+                id = devplayer->spriteinfo;
         } else if (idx < ECS_MAX_ENTITIES) {
-                const vec2f32_t pos = devecs_pos1[idx];
-
-                if ((pos.x == -1.0f && pos.y == -1.0f) 
-                || pos.x < (cam.x - RENDER_OFFSCREEN_SPRITEMARGIN) 
-                || pos.x > (cam.x + RENDER_OFFSCREEN_SPRITEMARGIN + WIDTH_TILES) 
-                || pos.y < (cam.y - RENDER_OFFSCREEN_SPRITEMARGIN) 
-                || pos.y > (cam.y + RENDER_OFFSCREEN_SPRITEMARGIN + HEIGHT_TILES)) {
-                        return; /* out of render bounds */
-                }
-
-                const spriteinfo_id_t id = devecs->spriteinfo[idx];
-                if (id == SPRITEINFO_ID_NONE) return;
+                pos = devecs_pos1[idx];
+                id = devecs->spriteinfos[idx];
+        } else {
+                return;
         }
-        cuarray_concadd<uint32_t>(renderable_ids, idx);
+
+        if ((pos.x == -1.0f && pos.y == -1.0f) 
+            || pos.x < (cam.x - RENDER_OFFSCREEN_SPRITEMARGIN) 
+            || pos.x > (cam.x + RENDER_OFFSCREEN_SPRITEMARGIN + WIDTH_TILES) 
+            || pos.y < (cam.y - RENDER_OFFSCREEN_SPRITEMARGIN) 
+            || pos.y > (cam.y + RENDER_OFFSCREEN_SPRITEMARGIN + HEIGHT_TILES)
+            || id == SPRITEINFO_ID_NONE) {
+                return; /* out of render bounds */
+        }
+
+
+        cuarray_concadd(renderable_ids, idx);
 
 }
 
@@ -199,36 +209,33 @@ __global__ void _kernel_animate_renderable_sprites(
 
         /* update sprite animation frame based on dt */
         const uint32_t entity_id = cuarray_get(renderable_ids, idx);
-        if (entity_id == ECS_MAX_ENTITIES) {
+        spriteinfo_id_t id;
+        float32_t oldtime;
+        spriteinfo_id_t* spriteinfo_ptr;
+        float32_t* spritetimer_ptr;
+        if (entity_id == RENDER_TRANSLATED_PLAYER_ENTITYID) {
+                oldtime = devplayer->spritetimer;
+                if (oldtime == SPRITEINFO_ANIM_NOANIMDURATION) return; /* unanimated */
                 /* player animation */
-                const spriteinfo_id_t id = devplayer->spriteinfo;
-                const float32_t oldtime = devplayer->spritetimer;
-                if (oldtime == SPRITEINFO_ANIM_NOANIMDURATION) return; /* unanimated */
-                const float32_t animlen = spriteinfo_animlen_devtable[id];
-                devplayer->spritetimer += dt;
-                if (devplayer->spritetimer >= animlen) {
-                        devplayer->spritetimer = 0.0f;
-                        devplayer->spriteinfo = (id + 1);
-                        const float32_t newanimlen = spriteinfo_animlen_devtable[id + 1];
-                        if (newanimlen < 0.0f) { /* sentinel reached */
-                                devplayer->spriteinfo += newanimlen; /* loop back */
-                        }
-                }
-                return;
+                id = devplayer->spriteinfo;
+                spriteinfo_ptr = &devplayer->spriteinfo;
+                spritetimer_ptr = &devplayer->spritetimer;
         } else if (entity_id < ECS_MAX_ENTITIES) {
-                if (entity_id >= ECS_MAX_ENTITIES) return; /* player must return */
-                const spriteinfo_id_t id = devecs->spriteinfo[entity_id];
-                const float32_t oldtime = devecs->spritetimers[entity_id];
+                oldtime = devecs->spritetimers[entity_id];
                 if (oldtime == SPRITEINFO_ANIM_NOANIMDURATION) return; /* unanimated */
-                const float32_t animlen = spriteinfo_animlen_devtable[id];
-                devecs->spritetimers[entity_id] += dt;
-                if (devecs->spritetimers[entity_id] >= animlen) {
-                        devecs->spritetimers[entity_id] = 0.0f;
-                        devecs->spriteinfo[entity_id] = (id + 1);
-                        const float32_t newanimlen = spriteinfo_animlen_devtable[id + 1];
-                        if (newanimlen < 0.0f) { /* sentinel reached */
-                                devecs->spriteinfo[entity_id] += newanimlen; /* loop back */
-                        }
+                /* ecs animation */
+                id = devecs->spriteinfos[entity_id];
+                spriteinfo_ptr = &devecs->spriteinfos[entity_id];
+                spritetimer_ptr = &devecs->spritetimers[entity_id];
+        }
+        const float32_t animlen = spriteinfo_animlen_devtable[id];
+        *spritetimer_ptr += dt;
+        if (*spritetimer_ptr >= animlen) {
+                *spritetimer_ptr = 0.0f;
+                *spriteinfo_ptr = (id + 1);
+                const float32_t newanimlen = spriteinfo_animlen_devtable[id + 1];
+                if (newanimlen < 0.0f) { /* sentinel reached */
+                        *spriteinfo_ptr += newanimlen; /* loop back */
                 }
         }
 }
@@ -301,6 +308,13 @@ __global__ static void _kernel_animate_worldmap_slice(
 
 }
 
+__global__ void _kernel_clear_depth(cudaSurfaceObject_t depth_surf) {
+        uint32_t x = blockIdx.x * blockDim.x + threadIdx.x;
+        uint32_t y = blockIdx.y * blockDim.y + threadIdx.y;
+        
+        if (x < WIDTH && y < HEIGHT) surf2Dwrite(FLT_MIN, depth_surf, x * sizeof(float32_t), y);
+}
+
 static inline void _prerender(
         world_map_devdata_t devworldmap,
         ecs_handle_t hostecs_handle,
@@ -311,6 +325,13 @@ static inline void _prerender(
         cudaMemcpy((void*)devplayer, (const void*)hostplayer->shared, sizeof(player_shared_t), cudaMemcpyHostToDevice);
         cudaMemcpy((void*)devecs_pos1, (const void*)hostecs_handle.instance->pos1, sizeof(vec2f32_t) * ECS_MAX_ENTITIES, cudaMemcpyHostToDevice);
         cuarray_hostclear(devrenderable_ids);
+
+
+        {
+                dim3 blockDim(TEX_TILEWIDTH, TEX_TILEHEIGHT, 1);
+                dim3 gridDim((WIDTH + blockDim.x - 1) / blockDim.x, (HEIGHT + blockDim.y - 1) / blockDim.y, 1);
+                _kernel_clear_depth<<<gridDim, blockDim>>>(sprite_depth_surf);
+        }
 
         {
                 cudaMemset(tileinfo_animtimer_updatelocks, 0, sizeof(uint32_t) * TILEINFOS);
@@ -331,10 +352,11 @@ static inline void _prerender(
         }
 
         {
-                constexpr uint32_t total_threads = ECS_MAX_ENTITIES + 1; /* +1 for player */
-                constexpr uint32_t blocksize = RENDER_DEFAULTBLOCKSIZE;
-                constexpr uint32_t numblocks = (total_threads + blocksize - 1) / blocksize;
-                _kernel_collect_renderable_sprites<<<numblocks, blocksize>>>(
+                /* +1 for player but emitted since we cannot use higher than 1024 threads */
+                constexpr uint32_t threads = RENDER_DEFAULTBLOCKSIZE;
+                const uint32_t total_threads = ECS_MAX_ENTITIES + 1;
+                const uint32_t numblocks = (total_threads + threads - 1) / threads;
+                _kernel_collect_renderable_sprites<<<numblocks, threads>>>(
                         devecs,
                         devecs_pos1,
                         devplayer,
@@ -346,7 +368,6 @@ static inline void _prerender(
 
         {
                 uint32_t renderablecount = cuarray_hostlength(devrenderable_ids);
-
                 const uint32_t total_threads = renderablecount;
                 constexpr uint32_t blocksize = RENDER_DEFAULTBLOCKSIZE;
                 const uint32_t numblocks = (total_threads + blocksize - 1) / blocksize;
@@ -499,6 +520,7 @@ __global__ static void _kernel_render_entity_sprites(
         cudaTextureObject_t texObj_tex_palette,
         cudaTextureObject_t texObj_spriteinfo_bboff_devtable,
         cudaSurfaceObject_t surf,
+        cudaSurfaceObject_t depth_surf,
         cuarray_t<uint32_t>* devrenderable_ids,
         vec2f32_t cam
 ) {
@@ -518,12 +540,12 @@ __global__ static void _kernel_render_entity_sprites(
         vec2f32_t pos;
         spriteinfo_id_t sprite_id;
 
-        if (entity_id == ECS_MAX_ENTITIES) { /* player */
+        if (entity_id == RENDER_TRANSLATED_PLAYER_ENTITYID) { /* player */
                 pos = player_pos1;
                 sprite_id = player->spriteinfo;
         } else if (entity_id < ECS_MAX_ENTITIES) {
                 pos = ecs_pos1[entity_id];
-                sprite_id = ecs->spriteinfo[entity_id];
+                sprite_id = ecs->spriteinfos[entity_id];
         }
         
         const spriteinfo_t spriteinfo = tex1Dfetch<spriteinfo_t>(texObj_spriteinfo_devtable, sprite_id);
@@ -561,9 +583,15 @@ __global__ static void _kernel_render_entity_sprites(
 
                         const tex_tileline_t line = tex1Dfetch<tex_tileline_t>(texObj_tex_tilemap, tilelineindex);
                         const tex_palref_t palref = TEX_GET_PALREF_FROM_TEXLINE(line, local_px);
+
                         if (palref != 0) {
-                                /* write final palette ref of pixel */
-                                surf2Dwrite(shared_palette[palref], surf, screen_x * sizeof(tex_realrgba_t), screen_y);
+                                float32_t current_depth;
+                                surf2Dread(&current_depth, depth_surf, screen_x * sizeof(float32_t), screen_y);
+                                const float32_t sprite_depth = pos.y + pos.x * 0.0001f; /* simple depth by y, with slight x offset to avoid z-fighting */
+                                if (sprite_depth > current_depth) {
+                                        surf2Dwrite(sprite_depth, depth_surf, screen_x * sizeof(float32_t), screen_y);
+                                        surf2Dwrite(shared_palette[palref], surf, screen_x * sizeof(tex_realrgba_t), screen_y);
+                                }
                         }
                 }
         }
@@ -590,6 +618,7 @@ static inline void _render_ecs_entities(
                 texObj_tex_palette,
                 texObj_spriteinfo_bboff_devtable,
                 surf,
+                sprite_depth_surf,
                 devrenderable_ids,
                 render_hostcamerapos
         );

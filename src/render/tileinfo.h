@@ -1,7 +1,8 @@
 #ifndef TILEINFO_H
 #define TILEINFO_H
 
-#include "../headeronly/vec.h"
+#include <stdint.h>
+#include "../headeronly/def.h"
 #include "../headeronly/tileinfogrid.h"
 
 #define TILEINFO_ANIM_SENTINEL -1.0f

@@ -25,7 +25,7 @@ typedef enum {
 typedef void (*ecs_entity_updatefunc_t)(uint32_t entity_id, float32_t dt);
 
 typedef struct __attribute__((aligned(32))) {
-        spriteinfo_id_t spriteinfo[ECS_MAX_ENTITIES]; /* + 32 => 400 */
+        spriteinfo_id_t spriteinfos[ECS_MAX_ENTITIES]; /* + 32 => 400 */
         float32_t spritetimers[ECS_MAX_ENTITIES]; /* + 32 => 432 */
 } ecs_shared_t; /* this is shared between dev and host */
 
