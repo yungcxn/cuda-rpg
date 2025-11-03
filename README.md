@@ -1,6 +1,6 @@
 # cuda-rpg
 
-This project explores CUDA+Vulkan interoperability, blazingly fast render performance through SIMT optimization techniques from CUDA and AVX-SIMD stragies.
+This project explores CUDA+Vulkan interoperability, blazingly fast render performance through SIMT optimization techniques from CUDA, aswell as those from the AVX-SIMD world.
 
 Its underlying system is heavily influenced by Entity-Component-Systems, but refined for the use of CUDA.
 
