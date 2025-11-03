@@ -22,6 +22,7 @@
 #define RENDER_DEFAULTBLOCKSIZE 256
 #define RENDER_OFFSCREEN_SPRITEMARGIN 10 /* tiles */
 #define RENDER_TRANSLATED_PLAYER_ENTITYID (ECS_MAX_ENTITIES)
+#define RENDER_MINDEPTH FLT_MIN
 
 static tex_tileline_t* tex_devtilemap;
 static tex_realrgba_t* tex_devpalette;
@@ -312,7 +313,7 @@ __global__ void _kernel_clear_depth(cudaSurfaceObject_t depth_surf) {
         uint32_t x = blockIdx.x * blockDim.x + threadIdx.x;
         uint32_t y = blockIdx.y * blockDim.y + threadIdx.y;
         
-        if (x < WIDTH && y < HEIGHT) surf2Dwrite(FLT_MIN, depth_surf, x * sizeof(float32_t), y);
+        if (x < WIDTH && y < HEIGHT) surf2Dwrite(RENDER_MINDEPTH, depth_surf, x * sizeof(float32_t), y);
 }
 
 static inline void _prerender(
@@ -409,6 +410,7 @@ __global__ static void _kernel_render_world_layerpair(
         cudaTextureObject_t texObj_tex_tilemap,
         cudaTextureObject_t texObj_tex_palette,
         cudaSurfaceObject_t surf,
+        cudaSurfaceObject_t depth_surf,
         vec2i32_t coarse_cam,
         vec2i32_t pixeloffset
 ) {
@@ -432,6 +434,10 @@ __global__ static void _kernel_render_world_layerpair(
         /* cam 1.0f is one tile */
         const int32_t world_tile_x = coarse_cam.x + screen_tile_x;
         const int32_t world_tile_y = coarse_cam.y + screen_tile_y;
+
+        /* read from surf your pixel, if nontransparent, (0), exit */
+        float32_t depth = surf2Dread<float32_t>(depth_surf, world_tile_x * sizeof(float32_t), world_tile_y);
+        if (depth != RENDER_MINDEPTH) return;
 
         /* we do not want to write below or above world boundaries */
         if (world_tile_y < 0 || world_tile_y >= mapheight
@@ -474,6 +480,7 @@ draw:
 
         /* write final palette ref of pixel */
         surf2Dwrite(shared_palette[final_pal], surf, screen_x * sizeof(tex_realrgba_t), screen_y);
+        surf2Dwrite(1.0f, depth_surf, screen_x * sizeof(float32_t), screen_y);
 }
 
 static inline void _render_world_map_layerpair(
@@ -505,6 +512,7 @@ static inline void _render_world_map_layerpair(
                 texObj_tex_tilemap,
                 texObj_tex_palette,
                 surf,
+                sprite_depth_surf,
                 cam_i,
                 pixeloffset
         );

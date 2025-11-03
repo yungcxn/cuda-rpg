@@ -27,7 +27,7 @@ void ecs_exec_spawn(ecs_handle_t* restrict ecs_handle, ecs_exec_spawndata_t* res
         ecs_instance->velocity[entity_id] = (vec2f32_t){0.0f, 0.0f};
         ecs_instance->entitytype[entity_id] = data->entitytype;
         ecs_instance->root_entity_id[entity_id] = data->root_entity_id;
-        ecs_instance->shared->spriteinfo[entity_id] = data->spriteinfo;
+        ecs_instance->shared->spriteinfos[entity_id] = data->spriteinfo;
         ecs_instance->shared->spritetimers[entity_id] = 0.0f;
 }
 
@@ -62,7 +62,7 @@ void ecs_exec_spawn_avx2(ecs_handle_t* restrict ecs_handle, ecs_exec_spawndata_a
         _mm256_store_ps((float32_t*)&ecs_instance->velocity[aligned_entitystartid + 4], velocity_zero);
         _mm256_store_si256((__m256i*)&ecs_instance->entitytype[aligned_entitystartid], entitytype_vec);
         _mm256_store_si256((__m256i*)&ecs_instance->root_entity_id[aligned_entitystartid], root_entity_id_vec);
-        _mm256_store_si256((__m256i*)&ecs_instance->shared->spriteinfo[aligned_entitystartid], spriteinfo_vec);
+        _mm256_store_si256((__m256i*)&ecs_instance->shared->spriteinfos[aligned_entitystartid], spriteinfo_vec);
         _mm256_store_ps((float32_t*)&ecs_instance->shared->spritetimers[aligned_entitystartid], spritetimers_vec);
 }
 
@@ -223,7 +223,7 @@ vec2f32_t* ecs_pos1_devbuf_create(void) {
 }
 
 void ecs_pos1_devbuf_destroy(vec2f32_t* devbuf) {
-        cudamem_free(devbuf);
+        ccuda_free(devbuf);
 }
 
 static inline ecs_t* _ecs_alloc(void) {
@@ -295,7 +295,7 @@ static inline void _remove_garbage(ecs_handle_t* restrict ecs_handle) {
                         ecs_instance->velocity[j] = ecs_instance->velocity[i];
                         ecs_instance->entitytype[j] = ecs_instance->entitytype[i];
                         ecs_instance->root_entity_id[j] = ecs_instance->root_entity_id[i];
-                        ecs_instance->shared->spriteinfo[j] = ecs_instance->shared->spriteinfo[i];
+                        ecs_instance->shared->spriteinfos[j] = ecs_instance->shared->spriteinfos[i];
                         ecs_instance->shared->spritetimers[j] = ecs_instance->shared->spritetimers[i];
                         j++;
                 }
