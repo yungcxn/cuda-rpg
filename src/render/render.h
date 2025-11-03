@@ -6,6 +6,7 @@
 #include "../world/world.h"
 #include "../world/ecs.h"
 #include "../world/player/player.h"
+#include "tex.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -13,7 +14,7 @@ extern "C" {
 
 void render_data_setup(void);
 void render_data_cleanup(void);
-void render(world_map_devdata_t devmapdata, ecs_shared_t* hostecs, player_shared_t* hostplayer, float32_t dt);
+void render(tex_realrgba_t* framebuffer, world_map_devdata_t devmapdata, ecs_shared_t* hostecs, player_shared_t* hostplayer, float32_t dt);
 
 #ifdef __cplusplus
 }

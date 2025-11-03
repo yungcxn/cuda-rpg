@@ -23,7 +23,7 @@ static inline void _update(float32_t dt) {
 }
 
 int main(void) {
-        vulkan_setup();
+        tex_realrgba_t* framebuffer = vulkan_setup();
         render_data_setup();
         key_setup(); /* after render; needs window/display */
         world_ctx = world_ctx_create();
@@ -39,8 +39,12 @@ int main(void) {
 
                 _update(dt);
 
-                render(world_ctx->world.devtiles, world_ctx->ecs_handle.instance->shared,
-                       world_ctx->player->shared, dt);
+                render(
+                        framebuffer,
+                        world_ctx->world.devtiles,
+                        world_ctx->ecs_handle.instance->shared,
+                        world_ctx->player->shared, dt
+                );
 
                 last_time = _get_time_seconds();
         }

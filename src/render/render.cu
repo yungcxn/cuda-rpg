@@ -395,11 +395,11 @@ __device__ __forceinline__ static tex_palref_t _get_tile_palref(
 }
 
 __global__ static void _kernel_render_world_map(
+        tex_realrgba_t* framebuffer,
         world_map_devdata_t mapdata,
         cudaTextureObject_t texObj_tileinfo_devtable,
         cudaTextureObject_t texObj_tex_tilemap,
         cudaTextureObject_t texObj_tex_palette,
-        cudaSurfaceObject_t surf,
         float32_t* screen_depth_buf,
         vec2i32_t coarse_cam,
         vec2i32_t pixeloffset
@@ -499,11 +499,12 @@ draw:
         }
 
         /* write final palette ref of pixel */
-        surf2Dwrite(shared_palette[final_pal], surf, screen_x * sizeof(tex_realrgba_t), screen_y);
+        framebuffer[screen_y * WIDTH + screen_x] = shared_palette[final_pal];
         screen_depth_buf[screen_y * WIDTH + screen_x] = final_depth;
 }
 
 __global__ static void _kernel_render_entity_sprites(
+        tex_realrgba_t* framebuffer,
         ecs_shared_t* ecs,
         vec2f32_t* ecs_pos1,
         player_shared_t* player,
@@ -512,7 +513,6 @@ __global__ static void _kernel_render_entity_sprites(
         cudaTextureObject_t texObj_tex_tilemap,
         cudaTextureObject_t texObj_tex_palette,
         cudaTextureObject_t texObj_spriteinfo_bboff_devtable,
-        cudaSurfaceObject_t surf,
         float32_t* screen_depth_buf,
         cuarray_t<uint32_t>* devrenderable_ids,
         vec2f32_t cam
@@ -577,19 +577,25 @@ __global__ static void _kernel_render_entity_sprites(
                         if (palref != 0) { 
                                 const float32_t sprite_depth = pos.y + pos.x * 0.0001f; /* simple depth by y, with slight x offset to avoid z-fighting */
                                 if (sprite_depth > atomicAdd(&screen_depth_buf[screen_y * WIDTH + screen_x], 0.0f)) {
+                                        /* we did not need atomics in saving depth during world render bc of per-screen pixel thread */
                                         atomicExch(&screen_depth_buf[screen_y * WIDTH + screen_x], sprite_depth);
-                                        surf2Dwrite(shared_palette[palref], surf, screen_x * sizeof(tex_realrgba_t), screen_y);
+                                        framebuffer[screen_y * WIDTH + screen_x] = shared_palette[palref];
                                 }
                         }
                 }
         }
 }
 
-void render(world_map_devdata_t devmapdata, ecs_handle_t hostecs_handle, player_t* hostplayer, float32_t dt) {
+void render(
+        tex_realrgba_t* framebuffer,
+        world_map_devdata_t devmapdata,
+        ecs_handle_t hostecs_handle,
+        player_t* hostplayer,
+        float32_t dt
+) {
         uint32_t img_idx = 0;
-        ccuda_surfaceobj_t surf = 0;
+        vulkan_pre_render(&img_idx);
 
-        vulkan_pre_render(&img_idx, &surf); 
         _prerender(devmapdata, hostecs_handle, hostplayer, dt);
         cudaDeviceSynchronize();
         
@@ -608,11 +614,11 @@ void render(world_map_devdata_t devmapdata, ecs_handle_t hostecs_handle, player_
                 dim3 blockDim(TEX_TILEWIDTH, TEX_TILEHEIGHT, 1);
 
                 _kernel_render_world_map<<<gridDim, blockDim>>>(
+                        framebuffer,
                         devmapdata,
                         texObj_tileinfo_devtable,
                         texObj_tex_tilemap,
                         texObj_tex_palette,
-                        surf,
                         screen_depth_devbuffer,
                         cam_i,
                         pixeloffset
@@ -628,6 +634,7 @@ void render(world_map_devdata_t devmapdata, ecs_handle_t hostecs_handle, player_
                 dim3 gridDim(host_renderables, 1, 1);
 
                 _kernel_render_entity_sprites<<<gridDim, blockDim>>>(
+                        framebuffer,
                         devecs,
                         devecs_pos1,
                         devplayer,
@@ -636,7 +643,6 @@ void render(world_map_devdata_t devmapdata, ecs_handle_t hostecs_handle, player_
                         texObj_tex_tilemap,
                         texObj_tex_palette,
                         texObj_spriteinfo_bboff_devtable,
-                        surf,
                         screen_depth_devbuffer,
                         devrenderable_ids,
                         render_hostcamerapos

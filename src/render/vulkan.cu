@@ -1,3 +1,4 @@
+#include "tex.h"
 #include <X11/Xlib.h>
 #define VK_USE_PLATFORM_XLIB_KHR
 #include <vulkan/vulkan.h>
@@ -24,8 +25,8 @@ static uint32_t swapchain_image_count = 0;
 static VkImage shared_image = VK_NULL_HANDLE;
 static VkDeviceMemory shared_memory = VK_NULL_HANDLE;
 static cudaExternalMemory_t cuda_ext_mem;
-static cudaMipmappedArray_t cuda_mipmap;
-static cudaSurfaceObject_t cuda_surface;
+
+static tex_realrgba_t* framebuffer = 0;
 
 static VkExtent2D current_extent = {WINDOW_WIDTH, WINDOW_HEIGHT};
 static VkOffset2D render_offset = {0, 0};
@@ -306,26 +307,16 @@ static inline void _create_swapchain_and_shared_image(void) {
 
         close(fd);
 
-        cudaExternalMemoryMipmappedArrayDesc mipmap_desc = {};
-        mipmap_desc.extent = make_cudaExtent(WIDTH, HEIGHT, 1);
-        mipmap_desc.formatDesc = cudaCreateChannelDesc(8, 8, 8, 8, cudaChannelFormatKindUnsigned);
-        mipmap_desc.numLevels = 1;
-        mipmap_desc.flags = cudaArraySurfaceLoadStore;
+        cudaExternalMemoryBufferDesc buffer_desc = {};
+        buffer_desc.offset = 0;
+        buffer_desc.size = mem_reqs.size;
+        buffer_desc.flags = 0;
 
-        if (cudaExternalMemoryGetMappedMipmappedArray(&cuda_mipmap, cuda_ext_mem, &mipmap_desc) 
-                != cudaSuccess) THROW("Failed to get CUDA mipmapped array");
+        if (cudaExternalMemoryGetMappedBuffer((void**)&framebuffer, cuda_ext_mem, &buffer_desc) 
+                != cudaSuccess) {
+                THROW("Failed to get CUDA mapped buffer");
+        }
 
-        cudaArray_t cuda_array = 0;
-        if (cudaGetMipmappedArrayLevel(&cuda_array, cuda_mipmap, 0) != cudaSuccess) 
-                THROW("Failed to get CUDA array level");
-
-        cudaResourceDesc res_desc = {};
-        res_desc.resType = cudaResourceTypeArray;
-        res_desc.res.array.array = cuda_array;
-
-        if (cudaCreateSurfaceObject(&cuda_surface, &res_desc) != cudaSuccess) 
-                THROW("Failed to create CUDA surface object");
-        
         DEBUG_PRINT(
                 "Render image: RGBA, Swapchain: format %d (BGRA auto-converted by GPU)\n",
                 surface_format.format
@@ -333,7 +324,7 @@ static inline void _create_swapchain_and_shared_image(void) {
 }
 
 
-vulkan_setupdata_t vulkan_setup(void) {
+tex_realrgba_t* vulkan_setup(void) {
         x_display = XOpenDisplay(NULL);
         if (!x_display) THROW("Failed to open X display\n");
 
@@ -457,20 +448,13 @@ vulkan_setupdata_t vulkan_setup(void) {
         vkGetDeviceQueue(device, graphics_queue_family, 0, &graphics_queue);
         _create_swapchain_and_shared_image();
 
-        return {x_display, x_window};
+        return framebuffer;
 }
 
 static inline void _recreate_swapchain() {
         vkDeviceWaitIdle(device);
 
-        if (cuda_surface) {
-                cudaDestroySurfaceObject(cuda_surface);
-                cuda_surface = 0;
-        }
-        if (cuda_mipmap) {
-                cudaFreeMipmappedArray(cuda_mipmap);
-                cuda_mipmap = 0;
-        }
+        framebuffer = 0;
         if (cuda_ext_mem) {
                 cudaDestroyExternalMemory(cuda_ext_mem);
                 cuda_ext_mem = 0;
@@ -492,14 +476,7 @@ static inline void _recreate_swapchain() {
 }
 
 void vulkan_cleanup(void) {
-        if (cuda_surface) {
-                cudaDestroySurfaceObject(cuda_surface);
-                cuda_surface = 0;
-        }
-        if (cuda_mipmap) {
-                cudaFreeMipmappedArray(cuda_mipmap);
-                cuda_mipmap = 0;
-        }
+        framebuffer = 0;
         if (cuda_ext_mem) {
                 cudaDestroyExternalMemory(cuda_ext_mem);
                 cuda_ext_mem = 0;
@@ -545,7 +522,7 @@ void vulkan_cleanup(void) {
 }
 
 /* must be a type that is understandable by c23 */
-void vulkan_pre_render(uint32_t* image_index, ccuda_surfaceobj_t* outsurf) {
+void vulkan_pre_render(uint32_t* image_index) {
         if (swapchain == VK_NULL_HANDLE) THROW("Swapchain not initialized in render_frame");
 
         VkResult r = vkAcquireNextImageKHR(
@@ -554,7 +531,6 @@ void vulkan_pre_render(uint32_t* image_index, ccuda_surfaceobj_t* outsurf) {
         
         if (r != VK_SUCCESS) THROW("vkAcquireNextImageKHR returned %d\n", r);
         if (*image_index >= swapchain_image_count) THROW("Invalid image index in pre_render");
-        *outsurf = (ccuda_surfaceobj_t) cuda_surface;
 }
 
 void vulkan_post_render(uint32_t image_index) {

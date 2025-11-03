@@ -6,21 +6,16 @@
 #include <cuda_runtime.h>
 #endif
 #include "util/ccuda.h"
+#include "tex.h"
 
 #ifndef VK_USE_PLATFORM_XLIB_KHR
         #define VK_USE_PLATFORM_XLIB_KHR
 #endif
         #include <X11/Xlib.h>
 
-
-typedef struct {
-        Display* x_display;
-        Window x_window;
-} vulkan_setupdata_t;
-
-vulkan_setupdata_t vulkan_setup(void);
+tex_realrgba_t* vulkan_setup(void);
 void vulkan_cleanup(void);
-void vulkan_pre_render(uint32_t* image_index, ccuda_surfaceobj_t *outsurf);
+void vulkan_pre_render(uint32_t* image_index);
 void vulkan_post_render(uint32_t image_index);
 
 Display* vulkan_get_xdisplay(void);
