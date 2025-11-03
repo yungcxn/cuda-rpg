@@ -1,8 +1,6 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <cuda_runtime_api.h>
-#include <surface_types.h>
-#include <surface_indirect_functions.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <cfloat>
@@ -23,6 +21,7 @@
 #define RENDER_OFFSCREEN_SPRITEMARGIN 10 /* tiles */
 #define RENDER_TRANSLATED_PLAYER_ENTITYID (ECS_MAX_ENTITIES)
 #define RENDER_MINDEPTH FLT_MIN
+#define RENDER_MAXDEPTH FLT_MAX
 
 static tex_tileline_t* tex_devtilemap;
 static tex_realrgba_t* tex_devpalette;
@@ -47,12 +46,11 @@ static cudaTextureObject_t texObj_spriteinfo_devtable;           /* spriteinfo_t
 static cudaTextureObject_t texObj_spriteinfo_animlen_devtable;   /* float32_t* */
 static cudaTextureObject_t texObj_spriteinfo_bboff_devtable;     /* spriteinfo_bboff_t* */
 
-static cudaArray_t sprite_depth_array;
-static cudaSurfaceObject_t sprite_depth_surf;
+static float32_t* screen_depth_devbuffer;
 
 /* pipeline:                                                                                                */
 /* world:                                                                                                   */
-/*   world_map_devdata_t (tileinfo_id_t) ->tileinfo_devtable ->tex_devtilemap ->tex_devpalette             */
+/*   world_map_devdata_t (tileinfo_id_t) ->tileinfo_devtable ->tex_devtilemap ->tex_devpalette              */
 /* ecs/player:                                                                                              */
 /*   ecs_shared_t/player_shared_t (spriteinfo_id_t) ->spriteinfo_devtable ->tex_devtilemap ->tex_devpalette */
 
@@ -126,13 +124,8 @@ void render_data_setup(void) {
         devecs = ecs_shared_devbuf_create();
         devecs_pos1 = ecs_pos1_devbuf_create();
         devrenderable_ids = cuarray_create<uint32_t>(ECS_MAX_ENTITIES + 1); /* +1 for player */
-        cudaChannelFormatDesc depth_desc = cudaCreateChannelDesc<float32_t>();
-        cudaMallocArray(&sprite_depth_array, &depth_desc, WIDTH, HEIGHT, cudaArraySurfaceLoadStore);
-        
-        resDesc = {};
-        resDesc.resType = cudaResourceTypeArray;
-        resDesc.res.array.array = sprite_depth_array;
-        cudaCreateSurfaceObject(&sprite_depth_surf, &resDesc);
+
+        cudaMalloc(&screen_depth_devbuffer, sizeof(float32_t) * WIDTH * HEIGHT);
 }
 
 void render_data_cleanup(void) {
@@ -159,6 +152,8 @@ void render_data_cleanup(void) {
         ecs_shared_devbuf_destroy(devecs);
         ecs_pos1_devbuf_destroy(devecs_pos1);
         cuarray_destroy(devrenderable_ids);
+
+        cudaFree(screen_depth_devbuffer);
 }
 
 __global__ void _kernel_collect_renderable_sprites(
@@ -193,9 +188,7 @@ __global__ void _kernel_collect_renderable_sprites(
                 return; /* out of render bounds */
         }
 
-
         cuarray_concadd(renderable_ids, idx);
-
 }
 
 __global__ void _kernel_animate_renderable_sprites(
@@ -270,7 +263,6 @@ __global__ static void _kernel_animate_worldmap_slice(
                 const uint32_t world_tile_idx = (idx % (PADDEDWIDTH_TILES)) + coarse_cam.x;
                 const uint32_t world_tile_idy = (idx / (PADDEDWIDTH_TILES)) % (PADDEDHEIGHT_TILES) + coarse_cam.y;
 
-                if (world_tile_idy < 0 || world_tile_idx < 0) return;
                 if (world_tile_idy >= mapdata.dim.height || world_tile_idx >= mapdata.dim.width) return;
 
                 layer_index = world_tile_idy * mapdata.dim.width + world_tile_idx;
@@ -309,11 +301,11 @@ __global__ static void _kernel_animate_worldmap_slice(
 
 }
 
-__global__ void _kernel_clear_depth(cudaSurfaceObject_t depth_surf) {
+__global__ void _kernel_clear_depth(float32_t* screen_depth_devbuf) {
         uint32_t x = blockIdx.x * blockDim.x + threadIdx.x;
         uint32_t y = blockIdx.y * blockDim.y + threadIdx.y;
-        
-        if (x < WIDTH && y < HEIGHT) surf2Dwrite(RENDER_MINDEPTH, depth_surf, x * sizeof(float32_t), y);
+
+        if (x < WIDTH && y < HEIGHT) screen_depth_devbuf[y * WIDTH + x] = RENDER_MINDEPTH;
 }
 
 static inline void _prerender(
@@ -326,12 +318,13 @@ static inline void _prerender(
         cudaMemcpy((void*)devplayer, (const void*)hostplayer->shared, sizeof(player_shared_t), cudaMemcpyHostToDevice);
         cudaMemcpy((void*)devecs_pos1, (const void*)hostecs_handle.instance->pos1, sizeof(vec2f32_t) * ECS_MAX_ENTITIES, cudaMemcpyHostToDevice);
         cuarray_hostclear(devrenderable_ids);
-
-
         {
-                dim3 blockDim(TEX_TILEWIDTH, TEX_TILEHEIGHT, 1);
-                dim3 gridDim((WIDTH + blockDim.x - 1) / blockDim.x, (HEIGHT + blockDim.y - 1) / blockDim.y, 1);
-                _kernel_clear_depth<<<gridDim, blockDim>>>(sprite_depth_surf);
+                dim3 blockDim(16, 16);
+                dim3 gridDim(
+                        (WIDTH + blockDim.x - 1) / blockDim.x,
+                        (HEIGHT + blockDim.y - 1) / blockDim.y
+                );
+                _kernel_clear_depth<<<gridDim, blockDim>>>(screen_depth_devbuffer);
         }
 
         {
@@ -401,19 +394,23 @@ __device__ __forceinline__ static tex_palref_t _get_tile_palref(
         return TEX_GET_PALREF_FROM_TEXLINE(line, px);
 }
 
-__global__ static void _kernel_render_world_layerpair(
-        const uint32_t mapwidth,
-        const uint32_t mapheight,
-        tileinfo_id_t* sub_high,
-        tileinfo_id_t* sub_low,
+__global__ static void _kernel_render_world_map(
+        world_map_devdata_t mapdata,
         cudaTextureObject_t texObj_tileinfo_devtable,
         cudaTextureObject_t texObj_tex_tilemap,
         cudaTextureObject_t texObj_tex_palette,
         cudaSurfaceObject_t surf,
-        cudaSurfaceObject_t depth_surf,
+        float32_t* screen_depth_buf,
         vec2i32_t coarse_cam,
         vec2i32_t pixeloffset
 ) {
+        constexpr float32_t depths_per_layer[] = {
+                RENDER_MINDEPTH + 1.0f, /* bg */
+                RENDER_MINDEPTH + 2.0f, /* main */
+                RENDER_MAXDEPTH - 1.0f, /* on_main */
+                RENDER_MAXDEPTH, /* fg */
+        };
+
         __shared__ tex_realrgba_t shared_palette[TEX_COLOURS];
 
         /* save palette */
@@ -422,56 +419,79 @@ __global__ static void _kernel_render_world_layerpair(
         }
         __syncthreads();
 
-        /* one block is one tile of 256 threads */
-        const uint32_t screen_tile_x = blockIdx.x; /* 0 is leftmost tile, e.g. 17 rightmost */
-        const uint32_t screen_tile_y = blockIdx.y; /* 0 is topmost tile, e.g. 10 bottommost */
-
-        /* in-block-tid is pixel */
-        const uint32_t px = threadIdx.x & 15;  /* pixel in tile, 0-15 in width */
-        const uint32_t py = threadIdx.x >> 4;  /* pixel in tile, 0-15 in height */
-
         /* world tile coords, which have its width / 4 */
         /* cam 1.0f is one tile */
-        const int32_t world_tile_x = coarse_cam.x + screen_tile_x;
-        const int32_t world_tile_y = coarse_cam.y + screen_tile_y;
-
-        /* read from surf your pixel, if nontransparent, (0), exit */
-        float32_t depth = surf2Dread<float32_t>(depth_surf, world_tile_x * sizeof(float32_t), world_tile_y);
-        if (depth != RENDER_MINDEPTH) return;
+        const int32_t world_tile_x = coarse_cam.x + blockIdx.x;
+        const int32_t world_tile_y = coarse_cam.y + blockIdx.y;
 
         /* we do not want to write below or above world boundaries */
-        if (world_tile_y < 0 || world_tile_y >= mapheight
-                || world_tile_x < 0 || world_tile_x >= mapwidth) {
+        if (world_tile_y < 0 || world_tile_y >= mapdata.dim.height
+                || world_tile_x < 0 || world_tile_x >= mapdata.dim.width) {
                 return;
         }
 
         uint8_t final_pal = 0;
-
-        if (sub_high != 0) {
+        float32_t final_depth = 0;
+        if (mapdata.fg != 0) {
                 final_pal = _get_tile_palref(
                         texObj_tileinfo_devtable,
                         texObj_tex_tilemap,
-                        sub_high[world_tile_y * mapheight + world_tile_x],
-                        px,
-                        py
+                        mapdata.fg[world_tile_y * mapdata.dim.height + world_tile_x],
+                        threadIdx.x,
+                        threadIdx.y
                 );
-                if (final_pal != 0) goto draw;
+                if (final_pal != 0) {
+                        final_depth = depths_per_layer[3];
+                        goto draw;
+                }
         }
 
-        if (sub_low != 0) {
+        if (mapdata.on_main != 0) {
                 final_pal = _get_tile_palref(
                         texObj_tileinfo_devtable,
                         texObj_tex_tilemap,
-                        sub_low[world_tile_y * mapheight + world_tile_x],
-                        px,
-                        py
+                        mapdata.on_main[world_tile_y * mapdata.dim.height + world_tile_x],
+                        threadIdx.x,
+                        threadIdx.y
                 );
-                if (final_pal != 0) goto draw;
+                if (final_pal != 0) {
+                        final_depth = depths_per_layer[2];
+                        goto draw;
+                }
         }
+
+        if (mapdata.main != 0) {
+                final_pal = _get_tile_palref(
+                        texObj_tileinfo_devtable,
+                        texObj_tex_tilemap,
+                        mapdata.main[world_tile_y * mapdata.dim.height + world_tile_x],
+                        threadIdx.x,
+                        threadIdx.y
+                );
+                if (final_pal != 0) {
+                        final_depth = depths_per_layer[1];
+                        goto draw;
+                }
+        }
+
+        if (mapdata.bg != 0) {
+                final_pal = _get_tile_palref(
+                        texObj_tileinfo_devtable,
+                        texObj_tex_tilemap,
+                        mapdata.bg[world_tile_y * mapdata.dim.height + world_tile_x],
+                        threadIdx.x,
+                        threadIdx.y
+                );
+                if (final_pal != 0) {
+                        final_depth = depths_per_layer[0];
+                        goto draw;
+                }
+        }
+
         return;
 draw:
-        const int32_t screen_x = (screen_tile_x * TEX_TILEWIDTH) + px - pixeloffset.x;
-        const int32_t screen_y = (screen_tile_y * TEX_TILEHEIGHT) + py - pixeloffset.y;
+        const int32_t screen_x = (blockIdx.x * TEX_TILEWIDTH) + threadIdx.x - pixeloffset.x;
+        const int32_t screen_y = (blockIdx.y * TEX_TILEHEIGHT) + threadIdx.y - pixeloffset.y;
 
         /* screen check */
         if (screen_x < 0 || screen_x >= PADDED_WIDTH || screen_y < 0 || screen_y >= PADDED_HEIGHT) {
@@ -480,42 +500,7 @@ draw:
 
         /* write final palette ref of pixel */
         surf2Dwrite(shared_palette[final_pal], surf, screen_x * sizeof(tex_realrgba_t), screen_y);
-        surf2Dwrite(1.0f, depth_surf, screen_x * sizeof(float32_t), screen_y);
-}
-
-static inline void _render_world_map_layerpair(
-        const uint32_t mapwidth,
-        const uint32_t mapheight,
-        tileinfo_id_t* devmaplayer_subhigh,
-        tileinfo_id_t* devmaplayer_sublow,
-        cudaSurfaceObject_t surf
-) {
-        const vec2f32_t cam_f = render_hostcamerapos;
-        const vec2i32_t cam_i = {
-                (int32_t)cam_f.x,
-                (int32_t)cam_f.y
-        };
-        const vec2i32_t pixeloffset = {
-                (int32_t)((cam_f.x - (float32_t)cam_i.x) * TEX_TILEWIDTH),
-                (int32_t)((cam_f.y - (float32_t)cam_i.y) * TEX_TILEHEIGHT)
-        };
-
-        dim3 gridDim(PADDEDWIDTH_TILES, PADDEDHEIGHT_TILES, 1); /* tile amount of blocks */
-        dim3 blockDim(TEX_TILEWIDTH * TEX_TILEHEIGHT, 1, 1); /* pixels per tile */
-
-        _kernel_render_world_layerpair<<<gridDim, blockDim>>>(
-                mapwidth,
-                mapheight,
-                devmaplayer_subhigh,
-                devmaplayer_sublow,
-                texObj_tileinfo_devtable,
-                texObj_tex_tilemap,
-                texObj_tex_palette,
-                surf,
-                sprite_depth_surf,
-                cam_i,
-                pixeloffset
-        );
+        screen_depth_buf[screen_y * WIDTH + screen_x] = final_depth;
 }
 
 __global__ static void _kernel_render_entity_sprites(
@@ -528,7 +513,7 @@ __global__ static void _kernel_render_entity_sprites(
         cudaTextureObject_t texObj_tex_palette,
         cudaTextureObject_t texObj_spriteinfo_bboff_devtable,
         cudaSurfaceObject_t surf,
-        cudaSurfaceObject_t depth_surf,
+        float32_t* screen_depth_buf,
         cuarray_t<uint32_t>* devrenderable_ids,
         vec2f32_t cam
 ) {
@@ -559,13 +544,10 @@ __global__ static void _kernel_render_entity_sprites(
         const spriteinfo_t spriteinfo = tex1Dfetch<spriteinfo_t>(texObj_spriteinfo_devtable, sprite_id);
         const spriteinfo_bboff_t bboff = tex1Dfetch<spriteinfo_bboff_t>(texObj_spriteinfo_bboff_devtable, sprite_id);
 
-        /* in-block-tid is pixel */
-        const uint32_t px = threadIdx.x % TEX_TILEWIDTH;  /* pixel in tile */
-        const uint32_t py = threadIdx.x / TEX_TILEWIDTH;  /* pixel in tile */
-        if (py >= TEX_TILEHEIGHT) return;
+        if (threadIdx.y >= TEX_TILEHEIGHT) return;
 
-        const int32_t screen_x = (int32_t)((pos.x - cam.x) * TEX_TILEWIDTH) + px + bboff.x;
-        const int32_t screen_y = (int32_t)((pos.y - cam.y) * TEX_TILEHEIGHT) + py + bboff.y;
+        const int32_t screen_x = (int32_t)((pos.x - cam.x) * TEX_TILEWIDTH) + threadIdx.x + bboff.x;
+        const int32_t screen_y = (int32_t)((pos.y - cam.y) * TEX_TILEHEIGHT) + threadIdx.y + bboff.y;
 
         /* screen check */
         if (screen_x < 0 || screen_x >= PADDED_WIDTH || screen_y < 0 || screen_y >= PADDED_HEIGHT) {
@@ -580,8 +562,8 @@ __global__ static void _kernel_render_entity_sprites(
         for (uint32_t ty = 0; ty < spriteinfo.th; ty++) {
                 for (uint32_t tx = 0; tx < spriteinfo.tw; tx++) {
                         /* check if our pixel is in this tile */
-                        const uint32_t local_px = px - (tx * TEX_TILEWIDTH);
-                        const uint32_t local_py = py - (ty * TEX_TILEHEIGHT);
+                        const uint32_t local_px = threadIdx.x - (tx * TEX_TILEWIDTH);
+                        const uint32_t local_py = threadIdx.y - (ty * TEX_TILEHEIGHT);
 
                         const uint32_t tilelineindex = TEX_TILELINE_INDEX(
                                 spriteinfo.tx + tx,
@@ -592,44 +574,15 @@ __global__ static void _kernel_render_entity_sprites(
                         const tex_tileline_t line = tex1Dfetch<tex_tileline_t>(texObj_tex_tilemap, tilelineindex);
                         const tex_palref_t palref = TEX_GET_PALREF_FROM_TEXLINE(line, local_px);
 
-                        if (palref != 0) {
-                                float32_t current_depth;
-                                surf2Dread(&current_depth, depth_surf, screen_x * sizeof(float32_t), screen_y);
+                        if (palref != 0) { 
                                 const float32_t sprite_depth = pos.y + pos.x * 0.0001f; /* simple depth by y, with slight x offset to avoid z-fighting */
-                                if (sprite_depth > current_depth) {
-                                        surf2Dwrite(sprite_depth, depth_surf, screen_x * sizeof(float32_t), screen_y);
+                                if (sprite_depth > atomicAdd(&screen_depth_buf[screen_y * WIDTH + screen_x], 0.0f)) {
+                                        atomicExch(&screen_depth_buf[screen_y * WIDTH + screen_x], sprite_depth);
                                         surf2Dwrite(shared_palette[palref], surf, screen_x * sizeof(tex_realrgba_t), screen_y);
                                 }
                         }
                 }
         }
-}
-
-static inline void _render_ecs_entities(
-        ecs_handle_t hostecs_handle,
-        player_t* hostplayer,
-        cudaSurfaceObject_t surf
-) {
-        /* get renderable ids */
-        uint32_t host_renderables = cuarray_hostlength(devrenderable_ids);
-
-        const uint32_t threadsperblock = TEX_TILEWIDTH * TEX_TILEHEIGHT; /* block = tile */
-        const uint32_t numblocks = host_renderables; /* one block per entity to draw */
-
-        _kernel_render_entity_sprites<<<numblocks, threadsperblock>>>(
-                devecs,
-                devecs_pos1,
-                devplayer,
-                hostplayer->pos1,
-                texObj_spriteinfo_devtable,
-                texObj_tex_tilemap,
-                texObj_tex_palette,
-                texObj_spriteinfo_bboff_devtable,
-                surf,
-                sprite_depth_surf,
-                devrenderable_ids,
-                render_hostcamerapos
-        );
 }
 
 void render(world_map_devdata_t devmapdata, ecs_handle_t hostecs_handle, player_t* hostplayer, float32_t dt) {
@@ -640,31 +593,57 @@ void render(world_map_devdata_t devmapdata, ecs_handle_t hostecs_handle, player_
         _prerender(devmapdata, hostecs_handle, hostplayer, dt);
         cudaDeviceSynchronize();
         
-        _render_world_map_layerpair(
-                devmapdata.dim.width,
-                devmapdata.dim.height,
-                devmapdata.main,
-                devmapdata.bg,
-                surf
-        );
+        {
+                const vec2f32_t cam_f = render_hostcamerapos;
+                const vec2i32_t cam_i = {
+                        (int32_t)cam_f.x,
+                        (int32_t)cam_f.y
+                };
+                const vec2i32_t pixeloffset = {
+                        (int32_t)((cam_f.x - (float32_t)cam_i.x) * TEX_TILEWIDTH),
+                        (int32_t)((cam_f.y - (float32_t)cam_i.y) * TEX_TILEHEIGHT)
+                };
+
+                dim3 gridDim(PADDEDWIDTH_TILES, PADDEDHEIGHT_TILES, 1); /* tile amount of blocks */
+                dim3 blockDim(TEX_TILEWIDTH, TEX_TILEHEIGHT, 1);
+
+                _kernel_render_world_map<<<gridDim, blockDim>>>(
+                        devmapdata,
+                        texObj_tileinfo_devtable,
+                        texObj_tex_tilemap,
+                        texObj_tex_palette,
+                        surf,
+                        screen_depth_devbuffer,
+                        cam_i,
+                        pixeloffset
+                );
+        }
 
         cudaDeviceSynchronize();
 
-        _render_ecs_entities(
-                hostecs_handle,
-                hostplayer,
-                surf
-        );
+        {
+                uint32_t host_renderables = cuarray_hostlength(devrenderable_ids);
+
+                dim3 blockDim(TEX_TILEWIDTH, TEX_TILEHEIGHT, 1);
+                dim3 gridDim(host_renderables, 1, 1);
+
+                _kernel_render_entity_sprites<<<gridDim, blockDim>>>(
+                        devecs,
+                        devecs_pos1,
+                        devplayer,
+                        hostplayer->pos1,
+                        texObj_spriteinfo_devtable,
+                        texObj_tex_tilemap,
+                        texObj_tex_palette,
+                        texObj_spriteinfo_bboff_devtable,
+                        surf,
+                        screen_depth_devbuffer,
+                        devrenderable_ids,
+                        render_hostcamerapos
+                );
+        }
 
         cudaDeviceSynchronize();
-
-        _render_world_map_layerpair(
-                devmapdata.dim.width,
-                devmapdata.dim.height,
-                devmapdata.fg,
-                devmapdata.on_main,
-                surf
-        );
 
         cudaDeviceSynchronize();
         _postrender(hostecs_handle.instance->shared, hostplayer->shared);

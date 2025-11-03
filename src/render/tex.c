@@ -6,7 +6,7 @@
 tex_tileline_t* tex_devtilemap_create() {
         tex_tileline_t* devtilemap;
         const tex_tileline_t hosttilemap[] = { RES_MOTHERSHEET_DATA };
-        ccuda_malloc(&devtilemap, sizeof(hosttilemap));
+        ccuda_malloc((void**) &devtilemap, sizeof(hosttilemap));
         ccuda_copy(devtilemap, hosttilemap, sizeof(hosttilemap), 1);
         return devtilemap;
 }
@@ -14,8 +14,9 @@ tex_tileline_t* tex_devtilemap_create() {
 tex_realrgba_t* tex_devpalette_create() {
         tex_realrgba_t* devpalette;
         const tex_realrgba_t hostpalette[] = { RES_PALETTE_DATA };
-        ccuda_malloc(&devpalette, sizeof(hostpalette));
+        ccuda_malloc((void**) &devpalette, sizeof(hostpalette));
         ccuda_copy(devpalette, hostpalette, sizeof(hostpalette), 1);
+        return devpalette;
 }
 
 void tex_devtilemap_destroy(tex_tileline_t* devtilemap) {

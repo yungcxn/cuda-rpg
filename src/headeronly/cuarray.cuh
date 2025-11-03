@@ -1,7 +1,6 @@
 #ifndef CUARRAY_CUH
 #define CUARRAY_CUH
 
-#include <__clang_cuda_runtime_wrapper.h>
 #include <cuda.h>
 
 template <typename T>

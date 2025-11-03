@@ -24,12 +24,12 @@ typedef enum {
 
 #define WORLD_DEFAULT_ID 0
 
-typedef struct __attribute__((packed)) {
+typedef struct {
         tileinfo_id_t* bg;             /* dyn-alloc and destroy per load */
         tileinfo_id_t* main;           /* dyn-alloc and destroy per load */
         tileinfo_id_t* on_main;        /* dyn-alloc and destroy per load */
         tileinfo_id_t* fg;             /* dyn-alloc and destroy per load */
-        struct __attribute__((packed)) {
+        struct {
                 uint32_t width;
                 uint32_t height;
         } dim;

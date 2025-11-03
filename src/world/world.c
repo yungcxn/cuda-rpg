@@ -29,8 +29,8 @@ static inline world_ctx_t* _world_ctx_alloc() {
 
 void world_ctx_destroy(world_ctx_t* world_ctx) {
         ecs_handled_destroy(&(world_ctx->ecs_handle));
-        free(world_ctx);
         player_destroy(world_ctx->player);
+        free(world_ctx);
 }
 
 static inline void _world_destroy_devdata(world_map_devdata_t* tiles) {
@@ -100,28 +100,28 @@ world_map_devdata_t world_create_devdata_t(
 ) {
         world_map_devdata_t data;
         if (hostbg) {
-                ccuda_malloc(&data.bg, width * height * sizeof(tileinfo_id_t));
+                ccuda_malloc((void**)&data.bg, width * height * sizeof(tileinfo_id_t));
                 ccuda_copy(data.bg, hostbg, width * height * sizeof(tileinfo_id_t), 1);
         } else {
                 data.bg = 0;
         }
 
         if (hostmain) {
-                ccuda_malloc(&data.main, width * height * sizeof(tileinfo_id_t));
+                ccuda_malloc((void**)&data.main, width * height * sizeof(tileinfo_id_t));
                 ccuda_copy(data.main, hostmain, width * height * sizeof(tileinfo_id_t), 1);
         } else {
                 data.main = 0;
         }
 
         if (hostonmain) {
-                ccuda_malloc(&data.on_main, width * height * sizeof(tileinfo_id_t));
+                ccuda_malloc((void**)&data.on_main, width * height * sizeof(tileinfo_id_t));
                 ccuda_copy(data.on_main, hostonmain, width * height * sizeof(tileinfo_id_t), 1);
         } else {
                 data.on_main = 0;
         }
 
         if (hostfg) {
-                ccuda_malloc(&data.fg, width * height * sizeof(tileinfo_id_t));
+                ccuda_malloc((void**)&data.fg, width * height * sizeof(tileinfo_id_t));
                 ccuda_copy(data.fg, hostfg, width * height * sizeof(tileinfo_id_t), 1);
         } else {
                 data.fg = 0;

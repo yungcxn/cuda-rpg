@@ -1,12 +1,11 @@
 
 #define _POSIX_C_SOURCE 199309L /* for clock_gettime */
 #include <time.h>
+#include <stdbool.h>
 
 #include "key.h"
 #include "headeronly/def.h"
-
 #include "world/world.h"
-
 #include "render/vulkan.h"
 #include "render/render.h"
 
@@ -40,7 +39,8 @@ int main(void) {
 
                 _update(dt);
 
-                render();
+                render(world_ctx->world.devtiles, world_ctx->ecs_handle.instance->shared,
+                       world_ctx->player->shared, dt);
 
                 last_time = _get_time_seconds();
         }

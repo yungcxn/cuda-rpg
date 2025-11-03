@@ -6,9 +6,10 @@ CFLAGS = -std=c23 -Wall -Wextra -Wpedantic -O3 -mavx2 -mfma
 NVCCFLAGS = -std=c++17 -I/usr/include/vulkan -I/usr/include -I/usr/local/cuda/include -O3
 LDFLAGS = -L/usr/lib -lvulkan -lX11 -lcuda -lcudart
 
+# Detect debug mode
 ifdef DEBUG
-CFLAGS += -DDEBUG -g
-NVCCFLAGS += -DDEBUG -g
+CFLAGS += -DDEBUG -O0 -g
+NVCCFLAGS += -DDEBUG -O0 -g
 endif
 
 SRC_C := $(shell find src -name '*.c')
@@ -21,7 +22,7 @@ TARGET = main
 SRC_LIST := $(shell find src -type f \( -name '*.c' -o -name '*.cu' \) | sort)
 SRC_HASH := $(shell echo "$(SRC_LIST)" | md5sum | cut -d' ' -f1)
 
-# Default target: build everything and ensure compile_commands.json is up-to-date
+# Default target: optimized build
 all: compile_commands.json exec
 
 # Rebuild compile_commands.json only if source list changed
@@ -32,10 +33,16 @@ compile_commands.json: .src_hash
 .src_hash:
 	@echo "$(SRC_HASH)" > .src_hash
 
-# Build everything without running resgen.py automatically
+# Build everything (optimized)
 exec: $(OBJ_C) $(OBJ_CU) style-check.py
 	python style-check.py
 	$(NVCC) $(NVCCFLAGS) $(OBJ_C) $(OBJ_CU) -o $(TARGET) $(LDFLAGS)
+
+# Debug build: disable optimizations, add -g
+debug:
+	$(MAKE) DEBUG=1 clean
+	$(MAKE) DEBUG=1 exec
+	@echo "Built debug version of $(TARGET)"
 
 # Optional: regenerate resources manually
 res: src/res/res.h
