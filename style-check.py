@@ -2,6 +2,8 @@
 
 import os
 
+MAXLINE = 101
+
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 # get all files from here rec. ending with .c, .h, .cu, .cuh
@@ -11,12 +13,14 @@ for root, dirs, filenames in os.walk("src"):
                 if filename.endswith((".c", ".h", ".cu", ".cuh")):
                         files.append(os.path.join(root, filename))
 
-# now make a func that takes a file and returns true if all lines are less than 160
+# now make a func that takes a file and returns true if all lines are less than 100
 def check_file_length(file_path):
         with open(file_path, "r") as f:
                 lines = f.readlines()
                 for i, line in enumerate(lines):
-                        if len(line) > 160:
+                        # remove whitespace at end
+                        line = line.rstrip()
+                        if len(line) > MAXLINE:
                                 print(f"Line {i+1} in {file_path} is too long ({len(line)} characters)")
                                 return False
         return True

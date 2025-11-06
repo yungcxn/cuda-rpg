@@ -8,5 +8,7 @@
 **/main
 .vscode
 .vscode/*
+!.vscode/launch.json
+!.vscode/tasks.json
 .src_hash
 .cache

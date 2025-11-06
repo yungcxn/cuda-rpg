@@ -4,6 +4,10 @@
 #include <stdint.h>
 #include <X11/keysym.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define KEY_MOD(code) (1 << (code))
 #define KEY_ON(field, code) ((field) & KEY_MOD(code))
 #define KEY_OFF(field, code) (!KEY_ON(field, code))
@@ -25,5 +29,9 @@ void key_poll_event(void);
 
 key_inputfield_t key_get_pressed(void);
 key_inputfield_t key_get_typestart(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

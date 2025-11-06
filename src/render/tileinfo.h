@@ -5,6 +5,10 @@
 #include "../headeronly/def.h"
 #include "../headeronly/tileinfogrid.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define TILEINFO_ANIM_SENTINEL -1.0f
 
 /* X_TILEINFO_TUPLE(tileinfo_id, tx, ty) */
@@ -17,7 +21,7 @@
         X_TILEINFO_TUPLE_ANIM(tileinfo_id, 0, 0, (float32_t) -animlen)
 
 #define TILEINFO_LIST \
-        X_TILEINFO_TUPLE(TILEINFO_VOID, 0, 0) \
+        X_TILEINFO_TUPLE(TILEINFO_ID_VOID, 0, 0) \
         X_TILEINFO_TUPLE(TILEINFO_ID_GRASS_A, 1, 0) \
         X_TILEINFO_TUPLE(TILEINFO_ID_GRASS_B, 2, 2) \
         X_TILEINFO_TUPLE(TILEINFO_ID_GRASS_C, 2, 1) \
@@ -97,5 +101,9 @@ float32_t* tileinfo_animlen_devtable_create(void);
 void tileinfo_animlen_devtable_destroy(float32_t* tileinfo_animlen_devtable);
 float32_t* tileinfo_animtimer_devcache_create(void);
 void tileinfo_animtimer_devcache_destroy(float32_t* tileinfo_animtimer_devcache);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

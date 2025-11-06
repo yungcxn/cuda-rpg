@@ -5,6 +5,10 @@
 #include "../headeronly/vec.h"
 #include "../render/spriteinfo.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define ECS_MAX_ENTITIES 1024
 #define ECS_ENTITY_DEADMASK BIT64(63)
 
@@ -25,19 +29,19 @@ typedef enum {
 typedef void (*ecs_entity_updatefunc_t)(uint32_t entity_id, float32_t dt);
 
 typedef struct __attribute__((aligned(32))) {
-        spriteinfo_id_t spriteinfos[ECS_MAX_ENTITIES]; /* + 32 => 400 */
-        float32_t spritetimers[ECS_MAX_ENTITIES]; /* + 32 => 432 */
+        spriteinfo_id_t spriteinfos[ECS_MAX_ENTITIES] __attribute__((aligned(32))); /* + 32 => 400 */
+        float32_t spritetimers[ECS_MAX_ENTITIES] __attribute__((aligned(32))); /* + 32 => 432 */
 } ecs_shared_t; /* this is shared between dev and host */
 
 typedef struct __attribute__((aligned(32))) {
-        uint64_t state_hi[ECS_MAX_ENTITIES]; /* 64 */
-        uint64_t state_lo[ECS_MAX_ENTITIES]; /* + 64 => 128 */
-        vec2f32_t pos1[ECS_MAX_ENTITIES]; /* + 64 => 192 */
-        vec2f32_t pos2[ECS_MAX_ENTITIES]; /* + 64 => 256 */
-        vec2f32_t velocity[ECS_MAX_ENTITIES]; /* + 64 => 320 */
+        uint64_t state_hi[ECS_MAX_ENTITIES] __attribute__((aligned(32))); /* 64 */
+        uint64_t state_lo[ECS_MAX_ENTITIES] __attribute__((aligned(32))); /* + 64 => 128 */
+        vec2f32_t pos1[ECS_MAX_ENTITIES] __attribute__((aligned(32))); /* + 64 => 192 */
+        vec2f32_t pos2[ECS_MAX_ENTITIES] __attribute__((aligned(32))); /* + 64 => 256 */
+        vec2f32_t velocity[ECS_MAX_ENTITIES] __attribute__((aligned(32))); /* + 64 => 320 */
         /* we handle sprites on GPU */
-        ecs_entitytype_t entitytype[ECS_MAX_ENTITIES]; /* + 32 => 352 */
-        uint32_t root_entity_id[ECS_MAX_ENTITIES]; /* + 32 => 384 */
+        ecs_entitytype_t entitytype[ECS_MAX_ENTITIES] __attribute__((aligned(32))); /* + 32 => 352 */
+        uint32_t root_entity_id[ECS_MAX_ENTITIES] __attribute__((aligned(32))); /* + 32 => 384 */
         ecs_shared_t* shared; /* + 64 => 432 */
 } ecs_t;
 
@@ -55,7 +59,7 @@ typedef struct { /* unpacked */
         spriteinfo_id_t spriteinfo;
 } ecs_exec_spawndata_t;
 
-typedef struct { /* unpacked */
+typedef struct __attribute__((aligned(32))) { /* unpacked */
         vec2f32_t pos1[_UINT32_IN_AVX2REG]; /* 2 simd regs */
         vec2f32_t pos2[_UINT32_IN_AVX2REG]; /* 2 simd regs */
         ecs_entitytype_t entitytype[_UINT32_IN_AVX2REG]; /* 1 simd reg */
@@ -67,7 +71,7 @@ typedef struct { /* unpacked */
         uint32_t entity_id;
 } ecs_exec_killdata_t;
 
-typedef struct { /* unpacked */
+typedef struct __attribute__((aligned(32))) { /* unpacked */
         uint32_t entity_startid8x;
 } ecs_exec_killdata_avx2_t;
 
@@ -76,7 +80,7 @@ typedef struct { /* unpacked */
         vec2f32_t velocity_diff;
 } ecs_exec_velocity_acceldata_t;
 
-typedef struct { /* unpacked */
+typedef struct __attribute__((aligned(32))) { /* unpacked */
         uint32_t entity_startid8x;
         vec2f32_t velocity_diff[_UINT32_IN_AVX2REG]; /* 2 simd regs */
 } ecs_exec_velocity_acceldata_avx2_t;
@@ -86,7 +90,7 @@ typedef struct { /* unpacked */
         vec2f32_t velocity_set;
 } ecs_exec_velocity_setdata_t;
 
-typedef struct { /* unpacked */
+typedef struct __attribute__((aligned(32))) { /* unpacked */
         uint32_t entity_startid8x;
         vec2f32_t velocity_set[_UINT32_IN_AVX2REG]; /* 2 simd regs */
 } ecs_exec_velocity_setdata_avx2_t;
@@ -97,7 +101,7 @@ typedef struct { /* unpacked */
         vec2f32_t pos2;
 } ecs_exec_teleportdata_t;
 
-typedef struct { /* unpacked */
+typedef struct __attribute__((aligned(32))) { /* unpacked */
         uint32_t entity_startid8x;
         vec2f32_t pos1[_UINT32_IN_AVX2REG]; /* 2 simd regs */
         vec2f32_t pos2[_UINT32_IN_AVX2REG]; /* 2 simd regs */
@@ -109,7 +113,7 @@ typedef struct { /* unpacked */
         uint64_t state_lo_or;
 } ecs_exec_state_ordata_t;
 
-typedef struct { /* unpacked */
+typedef struct __attribute__((aligned(32))) { /* unpacked */
         uint32_t entity_startid8x;
         uint64_t state_hi_or[_UINT32_IN_AVX2REG]; /* 2 simd regs */
         uint64_t state_lo_or[_UINT32_IN_AVX2REG]; /* 2 simd regs */
@@ -121,7 +125,7 @@ typedef struct { /* unpacked */
         uint64_t state_lo_and;
 } ecs_exec_state_anddata_t;
 
-typedef struct { /* unpacked */
+typedef struct __attribute__((aligned(32))) { /* unpacked */
         uint32_t entity_startid8x;
         uint64_t state_hi_and[_UINT32_IN_AVX2REG]; /* 2 simd regs */
         uint64_t state_lo_and[_UINT32_IN_AVX2REG]; /* 2 simd regs */
@@ -157,7 +161,8 @@ void ecs_exec_state_and(ecs_handle_t* ecs_handle, ecs_exec_state_anddata_t* data
 
 void ecs_exec_spawn_avx2(ecs_handle_t* ecs_handle, ecs_exec_spawndata_avx2_t* data);
 void ecs_exec_kill_avx2(ecs_handle_t* ecs_handle, ecs_exec_killdata_avx2_t* data);
-void ecs_exec_velocity_accel_avx2(ecs_handle_t* ecs_handle, ecs_exec_velocity_acceldata_avx2_t* data);
+void ecs_exec_velocity_accel_avx2(ecs_handle_t* ecs_handle, 
+                                  ecs_exec_velocity_acceldata_avx2_t* data);
 void ecs_exec_velocity_set_avx2(ecs_handle_t* ecs_handle, ecs_exec_velocity_setdata_avx2_t* data);
 void ecs_exec_teleport_avx2(ecs_handle_t* ecs_handle, ecs_exec_teleportdata_avx2_t* data);
 void ecs_exec_state_or_avx2(ecs_handle_t* ecs_handle, ecs_exec_state_ordata_avx2_t* data);
@@ -171,4 +176,9 @@ ecs_shared_t* ecs_shared_devbuf_create(void);
 void ecs_shared_devbuf_destroy(ecs_shared_t* devbuf);
 vec2f32_t* ecs_pos1_devbuf_create(void);
 void ecs_pos1_devbuf_destroy(vec2f32_t* devbuf);
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif

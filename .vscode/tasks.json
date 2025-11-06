@@ -1,0 +1,17 @@
+{
+        "version": "2.0.0",
+        "tasks": [{
+                "label": "build",
+                "type": "shell",
+                "command": "make debug",
+                "options": {
+                        "env": {
+                                "PATH": "/usr/local/cuda/bin:${env:PATH}"
+                        }
+                },
+                "group": {
+                        "kind": "build",
+                        "isDefault": true
+                }
+        }]
+}

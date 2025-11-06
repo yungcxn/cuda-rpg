@@ -75,17 +75,17 @@ spriteinfo_bboff_t* spriteinfo_bboff_devtable_create() {
         return spriteinfo_bboff_devtable;
 }
 
-void spriteinfo_devtable_free(spriteinfo_t* spriteinfo_devtable) {
+void spriteinfo_devtable_destroy(spriteinfo_t* spriteinfo_devtable) {
         ccuda_free(spriteinfo_devtable);
         spriteinfo_devtable = 0;
 }
 
-void spriteinfo_animlen_devtable_free(float32_t* spriteinfo_animlen_devtable) {
+void spriteinfo_animlen_devtable_destroy(float32_t* spriteinfo_animlen_devtable) {
         ccuda_free(spriteinfo_animlen_devtable);
         spriteinfo_animlen_devtable = 0;
 }
 
-void spriteinfo_bboff_devtable_free(spriteinfo_bboff_t* spriteinfo_bboff_devtable) {
+void spriteinfo_bboff_devtable_destroy(spriteinfo_bboff_t* spriteinfo_bboff_devtable) {
         ccuda_free(spriteinfo_bboff_devtable);
         spriteinfo_bboff_devtable = 0;
 }

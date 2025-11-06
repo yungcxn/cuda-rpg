@@ -21,12 +21,6 @@ static const world_updatefunc_t world_updatefunc_table[] = {
 
 static world_updatefunc_t world_ctx_updatefunc;
 
-static inline world_ctx_t* _world_ctx_alloc() {
-    world_ctx_t* w = (world_ctx_t*)malloc(sizeof(world_ctx_t));
-    if (!w) THROW("Failed to allocate memory for world context");
-    return w;
-}
-
 void world_ctx_destroy(world_ctx_t* world_ctx) {
         ecs_handled_destroy(&(world_ctx->ecs_handle));
         player_destroy(world_ctx->player);
@@ -35,10 +29,10 @@ void world_ctx_destroy(world_ctx_t* world_ctx) {
 
 static inline void _world_destroy_devdata(world_map_devdata_t* tiles) {
         if (!tiles) THROW("No tilelayers to free");
-        free(tiles->bg);
-        free(tiles->main);
-        free(tiles->on_main);
-        free(tiles->fg);
+        ccuda_free(tiles->bg);
+        ccuda_free(tiles->main);
+        ccuda_free(tiles->on_main);
+        ccuda_free(tiles->fg);
         tiles->bg = 0;
         tiles->main = 0;
         tiles->on_main = 0;
@@ -87,11 +81,14 @@ void world_ctx_update(world_ctx_t* world_ctx, key_inputfield_t pressed_keys, flo
 }
 
 world_ctx_t* world_ctx_create() {
-        world_ctx_t* world_ctx = _world_ctx_alloc();
-        world_ctx->ecs_handle = ecs_handled_create();
-        world_ctx->player = player_create();
-        world_ctx_firstload(world_ctx, WORLD_DEFAULT_ID);
-        return world_ctx;
+        uint32_t size = sizeof(world_ctx_t);
+        uint32_t aligned_size = (size + 31) & ~31;
+        world_ctx_t* w = (world_ctx_t*)aligned_alloc(32, aligned_size);
+        if (!w) THROW("Failed to allocate memory for world context");
+        w->ecs_handle = ecs_handled_create();
+        w->player = player_create();
+        world_ctx_firstload(w, WORLD_DEFAULT_ID);
+        return w;
 }
 
 world_map_devdata_t world_create_devdata_t(
@@ -132,7 +129,9 @@ world_map_devdata_t world_create_devdata_t(
         return data;
 }
 
-world_map_beams_t world_create_map_beams(vec2f32_t* host_tls, vec2f32_t* host_brs, uint32_t beam_count) {
+world_map_beams_t world_create_map_beams(vec2f32_t* host_tls, vec2f32_t* host_brs, 
+                                         uint32_t beam_count) {
+
         if (!host_tls || !host_brs) THROW("No beam data provided");
         world_map_beams_t beams;
         beams.beam_tls = (vec2f32_t*)malloc(beam_count * sizeof(vec2f32_t));

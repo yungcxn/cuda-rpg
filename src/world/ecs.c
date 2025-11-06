@@ -31,11 +31,17 @@ void ecs_exec_spawn(ecs_handle_t* restrict ecs_handle, ecs_exec_spawndata_t* res
         ecs_instance->shared->spritetimers[entity_id] = 0.0f;
 }
 
-void ecs_exec_spawn_avx2(ecs_handle_t* restrict ecs_handle, ecs_exec_spawndata_avx2_t* restrict data) {
+void ecs_exec_spawn_avx2(ecs_handle_t* restrict ecs_handle, 
+                         ecs_exec_spawndata_avx2_t* restrict data) {
+
         ecs_t* ecs_instance = ecs_handle->instance;
-        if (ecs_handle->living_count + _UINT32_IN_AVX2REG > ECS_MAX_ENTITIES) THROW("ECS entity limit reached");
+        if (ecs_handle->living_count + _UINT32_IN_AVX2REG > ECS_MAX_ENTITIES) 
+                THROW("ECS entity limit reached");
+
         uint32_t aligned_entitystartid = ecs_handle->living_count;
-        if (aligned_entitystartid % _UINT32_IN_AVX2REG != 0) THROW("ECS entity start ID not aligned to AVX2 register size");
+        if (aligned_entitystartid % _UINT32_IN_AVX2REG != 0) 
+                THROW("ECS entity start ID not aligned to AVX2 register size");
+
         ecs_handle->living_count += _UINT32_IN_AVX2REG;
 
         __m256 pos1_h1 = _mm256_load_ps((float*)&data->pos1[0]);
@@ -51,33 +57,45 @@ void ecs_exec_spawn_avx2(ecs_handle_t* restrict ecs_handle, ecs_exec_spawndata_a
         __m256 velocity_zero = _mm256_setzero_ps();
         
         _mm256_store_si256((__m256i*)&ecs_instance->state_hi[aligned_entitystartid], state_zero);
-        _mm256_store_si256((__m256i*)&ecs_instance->state_hi[aligned_entitystartid + 4], state_zero);
+        _mm256_store_si256((__m256i*)&ecs_instance->state_hi[aligned_entitystartid + 4],
+                           state_zero);
         _mm256_store_si256((__m256i*)&ecs_instance->state_lo[aligned_entitystartid], state_zero);
-        _mm256_store_si256((__m256i*)&ecs_instance->state_lo[aligned_entitystartid + 4], state_zero);
+        _mm256_store_si256((__m256i*)&ecs_instance->state_lo[aligned_entitystartid + 4], 
+                           state_zero);
         _mm256_store_ps((float*)&ecs_instance->pos1[aligned_entitystartid], pos1_h1);
         _mm256_store_ps((float*)&ecs_instance->pos1[aligned_entitystartid + 4], pos1_h2);
         _mm256_store_ps((float*)&ecs_instance->pos2[aligned_entitystartid], pos2_h1);
         _mm256_store_ps((float*)&ecs_instance->pos2[aligned_entitystartid + 4], pos2_h2);
         _mm256_store_ps((float*)&ecs_instance->velocity[aligned_entitystartid], velocity_zero);
         _mm256_store_ps((float*)&ecs_instance->velocity[aligned_entitystartid + 4], velocity_zero);
-        _mm256_store_si256((__m256i*)&ecs_instance->entitytype[aligned_entitystartid], entitytype_vec);
-        _mm256_store_si256((__m256i*)&ecs_instance->root_entity_id[aligned_entitystartid], root_entity_id_vec);
-        _mm256_store_si256((__m256i*)&ecs_instance->shared->spriteinfos[aligned_entitystartid], spriteinfo_vec);
-        _mm256_store_ps((float*)&ecs_instance->shared->spritetimers[aligned_entitystartid], spritetimers_vec);
+        _mm256_store_si256((__m256i*)&ecs_instance->entitytype[aligned_entitystartid], 
+                           entitytype_vec);
+        _mm256_store_si256((__m256i*)&ecs_instance->root_entity_id[aligned_entitystartid],
+                           root_entity_id_vec);
+        _mm256_store_si256((__m256i*)&ecs_instance->shared->spriteinfos[aligned_entitystartid], 
+                           spriteinfo_vec);
+        _mm256_store_ps((float*)&ecs_instance->shared->spritetimers[aligned_entitystartid], 
+                        spritetimers_vec);
 }
 
 void ecs_exec_kill(ecs_handle_t* restrict ecs_handle, ecs_exec_killdata_t* restrict data) {
         uint32_t entity_id = data->entity_id;
-        if (entity_id >= ecs_handle->living_count) THROW("Invalid entity ID to kill: %u", entity_id);
+        if (entity_id >= ecs_handle->living_count) 
+                THROW("Invalid entity ID to kill: %u", entity_id);
+
         ecs_handle->instance->pos1[entity_id] = (vec2f32_t){-1.0f, -1.0f};
         ecs_handle->dead_count++;
 }
 
-void ecs_exec_kill_avx2(ecs_handle_t* restrict ecs_handle, ecs_exec_killdata_avx2_t* restrict data) {
+void ecs_exec_kill_avx2(ecs_handle_t* restrict ecs_handle, ecs_exec_killdata_avx2_t* restrict data){
         ecs_t* ecs_instance = ecs_handle->instance;
         uint32_t entity_startid8x = data->entity_startid8x;
-        if (entity_startid8x % _UINT32_IN_AVX2REG != 0) THROW("ECS entity start ID not aligned to AVX2 register size");
-        if (entity_startid8x + _UINT32_IN_AVX2REG > ecs_handle->living_count) THROW("Invalid entity ID to kill AVX2: %u", entity_startid8x);
+        if (entity_startid8x % _UINT32_IN_AVX2REG != 0) 
+                THROW("ECS entity start ID not aligned to AVX2 register size");
+
+        if (entity_startid8x + _UINT32_IN_AVX2REG > ecs_handle->living_count) 
+                THROW("Invalid entity ID to kill AVX2: %u", entity_startid8x);
+
         for (uint32_t i = 0; i < 2; i++) {
                 __m256 pos_neg1 = _mm256_set1_ps(-1.0f);
                 _mm256_store_ps((float*)&ecs_instance->pos1[entity_startid8x + i * 4], pos_neg1);
@@ -87,54 +105,90 @@ void ecs_exec_kill_avx2(ecs_handle_t* restrict ecs_handle, ecs_exec_killdata_avx
         ecs_handle->dead_count += _UINT32_IN_AVX2REG;
 }
 
-void ecs_exec_velocity_accel(ecs_handle_t* restrict ecs_handle, ecs_exec_velocity_acceldata_t* restrict data) {
+void ecs_exec_velocity_accel(ecs_handle_t* restrict ecs_handle, 
+                             ecs_exec_velocity_acceldata_t* restrict data) {
+
         uint32_t entity_id = data->entity_id;
-        if (entity_id >= ecs_handle->living_count) THROW("Invalid entity ID for rotational velocity update: %u", entity_id);
+        if (entity_id >= ecs_handle->living_count) 
+                THROW("Invalid entity ID for rotational velocity update: %u", entity_id);
+
         vec2f32_add(&ecs_handle->instance->velocity[entity_id], &data->velocity_diff);
 }
 
-void ecs_exec_velocity_accel_avx2(ecs_handle_t* restrict ecs_handle, ecs_exec_velocity_acceldata_avx2_t* restrict data) {
+void ecs_exec_velocity_accel_avx2(ecs_handle_t* restrict ecs_handle, 
+                                  ecs_exec_velocity_acceldata_avx2_t* restrict data) {
+
         ecs_t* ecs_instance = ecs_handle->instance;
         uint32_t entity_startid8x = data->entity_startid8x;
-        if (entity_startid8x % _UINT32_IN_AVX2REG != 0) THROW("ECS entity start ID not aligned to AVX2 register size");
-        if (entity_startid8x + _UINT32_IN_AVX2REG > ecs_handle->living_count) THROW("Invalid entity ID for rotational velocity update AVX2: %u", entity_startid8x);
+        
+        if (entity_startid8x % _UINT32_IN_AVX2REG != 0) 
+                THROW("ECS entity start ID not aligned to AVX2 register size");
+
+        if (entity_startid8x + _UINT32_IN_AVX2REG > ecs_handle->living_count) 
+                THROW("Invalid entity ID for rotational velocity update AVX2: %u", entity_startid8x);
+
         for (uint32_t i = 0; i < 2; i++) {
-                __m256 vel = _mm256_load_ps((float*)&ecs_instance->velocity[entity_startid8x + i * 4]);
+                __m256 vel = 
+                        _mm256_load_ps((float*)&ecs_instance->velocity[entity_startid8x + i * 4]);
+
                 __m256 vel_diff = _mm256_load_ps((float*)&data->velocity_diff[i * 4]);
+
                 vel = _mm256_add_ps(vel, vel_diff);
                 _mm256_store_ps((float*)&ecs_instance->velocity[entity_startid8x + i * 4], vel);
         }
 }
 
-void ecs_exec_velocity_set(ecs_handle_t* restrict ecs_handle, ecs_exec_velocity_setdata_t* restrict data) {
+void ecs_exec_velocity_set(ecs_handle_t* restrict ecs_handle, 
+                           ecs_exec_velocity_setdata_t* restrict data) {
         uint32_t entity_id = data->entity_id;
-        if (entity_id >= ecs_handle->living_count) THROW("Invalid entity ID for rotational velocity set: %u", entity_id);
+
+        if (entity_id >= ecs_handle->living_count) 
+                THROW("Invalid entity ID for rotational velocity set: %u", entity_id);
+
         ecs_handle->instance->velocity[entity_id] = data->velocity_set;
 }
 
-void ecs_exec_velocity_set_avx2(ecs_handle_t* restrict ecs_handle, ecs_exec_velocity_setdata_avx2_t* restrict data) {
+void ecs_exec_velocity_set_avx2(ecs_handle_t* restrict ecs_handle, 
+                                ecs_exec_velocity_setdata_avx2_t* restrict data) {
+
         uint32_t entity_startid8x = data->entity_startid8x;
-        if (entity_startid8x % _UINT32_IN_AVX2REG != 0) THROW("ECS entity start ID not aligned to AVX2 register size");
-        if (entity_startid8x + _UINT32_IN_AVX2REG > ecs_handle->living_count) THROW("Invalid entity ID for rotational velocity set AVX2: %u", entity_startid8x);
+
+        if (entity_startid8x % _UINT32_IN_AVX2REG != 0) 
+                THROW("ECS entity start ID not aligned to AVX2 register size");
+
+        if (entity_startid8x + _UINT32_IN_AVX2REG > ecs_handle->living_count) 
+                THROW("Invalid entity ID for rotational velocity set AVX2: %u", entity_startid8x);
+
         for (uint32_t i = 0; i < 2; i++) {
                 __m256 vel_set = _mm256_load_ps((float*)&data->velocity_set[i * 4]);
-                _mm256_store_ps((float*)&ecs_handle->instance->velocity[entity_startid8x + i * 4], vel_set);
+                _mm256_store_ps((float*)&ecs_handle->instance->velocity[entity_startid8x + i * 4],
+                                vel_set);
         }
 }
 
 void ecs_exec_teleport(ecs_handle_t* restrict ecs_handle, ecs_exec_teleportdata_t* restrict data) {
         ecs_t* ecs_instance = ecs_handle->instance;
         uint32_t entity_id = data->entity_id;
-        if (entity_id >= ecs_handle->living_count) THROW("Invalid entity ID for teleport: %u", entity_id);
+
+        if (entity_id >= ecs_handle->living_count) 
+                THROW("Invalid entity ID for teleport: %u", entity_id);
+
         ecs_instance->pos1[entity_id] = data->pos1;
         ecs_instance->pos2[entity_id] = data->pos2;
 }
 
-void ecs_exec_teleport_avx2(ecs_handle_t* restrict ecs_handle, ecs_exec_teleportdata_avx2_t* restrict data) {
+void ecs_exec_teleport_avx2(ecs_handle_t* restrict ecs_handle, 
+                            ecs_exec_teleportdata_avx2_t* restrict data) {
+
         ecs_t* ecs_instance = ecs_handle->instance;
         uint32_t entity_startid8x = data->entity_startid8x;
-        if (entity_startid8x % _UINT32_IN_AVX2REG != 0) THROW("ECS entity start ID not aligned to AVX2 register size");
-        if (entity_startid8x + _UINT32_IN_AVX2REG > ecs_handle->living_count) THROW("Invalid entity ID for teleport AVX2: %u", entity_startid8x);
+                                
+        if (entity_startid8x % _UINT32_IN_AVX2REG != 0) 
+                THROW("ECS entity start ID not aligned to AVX2 register size");
+                                
+        if (entity_startid8x + _UINT32_IN_AVX2REG > ecs_handle->living_count) 
+                THROW("Invalid entity ID for teleport AVX2: %u", entity_startid8x);
+
         for (uint32_t i = 0; i < 2; i++) {
                 __m256 pos1 = _mm256_load_ps((float*)&data->pos1[i * 4]);
                 __m256 pos2 = _mm256_load_ps((float*)&data->pos2[i * 4]);
@@ -146,53 +200,83 @@ void ecs_exec_teleport_avx2(ecs_handle_t* restrict ecs_handle, ecs_exec_teleport
 void ecs_exec_state_or(ecs_handle_t* restrict ecs_handle, ecs_exec_state_ordata_t* restrict data) {
         ecs_t* ecs_instance = ecs_handle->instance;
         uint32_t entity_id = data->entity_id;
-        if (entity_id >= ecs_handle->living_count) THROW("Invalid entity ID for state OR: %u", entity_id);
+
+        if (entity_id >= ecs_handle->living_count) 
+                THROW("Invalid entity ID for state OR: %u", entity_id);
+
         ecs_instance->state_hi[entity_id] |= data->state_hi_or;
         ecs_instance->state_lo[entity_id] |= data->state_lo_or;
 }
 
-void ecs_exec_state_or_avx2(ecs_handle_t* restrict ecs_handle, ecs_exec_state_ordata_avx2_t* restrict data) {
+void ecs_exec_state_or_avx2(ecs_handle_t* restrict ecs_handle, 
+                            ecs_exec_state_ordata_avx2_t* restrict data) {
+
         ecs_t* ecs_instance = ecs_handle->instance;
         uint32_t entity_startid8x = data->entity_startid8x;
-        if (entity_startid8x % _UINT32_IN_AVX2REG != 0) THROW("ECS entity start ID not aligned to AVX2 register size");
-        if (entity_startid8x + _UINT32_IN_AVX2REG > ecs_handle->living_count) THROW("Invalid entity ID for state OR AVX2: %u", entity_startid8x);
+
+        if (entity_startid8x % _UINT32_IN_AVX2REG != 0) 
+                THROW("ECS entity start ID not aligned to AVX2 register size");
+        if (entity_startid8x + _UINT32_IN_AVX2REG > ecs_handle->living_count) 
+                THROW("Invalid entity ID for state OR AVX2: %u", entity_startid8x);
 
         for (uint32_t i = 0; i < 2; i++) {
-                __m256i state_hi = _mm256_load_si256((__m256i*)&ecs_instance->state_hi[entity_startid8x + i * 4]);
-                __m256i state_lo = _mm256_load_si256((__m256i*)&ecs_instance->state_lo[entity_startid8x + i * 4]);
+                __m256i state_hi = 
+                        _mm256_load_si256((__m256i*)&ecs_instance->state_hi[entity_startid8x +i*4]);
+
+                __m256i state_lo = 
+                        _mm256_load_si256((__m256i*)&ecs_instance->state_lo[entity_startid8x +i*4]);
+
                 __m256i state_hi_or = _mm256_load_si256((__m256i*)&data->state_hi_or[i * 4]);
                 __m256i state_lo_or = _mm256_load_si256((__m256i*)&data->state_lo_or[i * 4]);
 
                 state_hi = _mm256_or_si256(state_hi, state_hi_or);
                 state_lo = _mm256_or_si256(state_lo, state_lo_or);
 
-                _mm256_store_si256((__m256i*)&ecs_instance->state_hi[entity_startid8x + i * 4], state_hi);
-                _mm256_store_si256((__m256i*)&ecs_instance->state_lo[entity_startid8x + i * 4], state_lo);
+                _mm256_store_si256((__m256i*)&ecs_instance->state_hi[entity_startid8x + i * 4],
+                                   state_hi);
+                _mm256_store_si256((__m256i*)&ecs_instance->state_lo[entity_startid8x + i * 4],
+                                   state_lo);
         }
 }
 
-void ecs_exec_state_and(ecs_handle_t* restrict ecs_handle, ecs_exec_state_anddata_t* restrict data) {
+void ecs_exec_state_and(ecs_handle_t* restrict ecs_handle,
+                        ecs_exec_state_anddata_t* restrict data) {
+
         ecs_t* ecs_instance = ecs_handle->instance;
         uint32_t entity_id = data->entity_id;
-        if (entity_id >= ecs_handle->living_count) THROW("Invalid entity ID for state AND: %u", entity_id);
+
+        if (entity_id >= ecs_handle->living_count) 
+                THROW("Invalid entity ID for state AND: %u", entity_id);
+
         ecs_instance->state_hi[entity_id] &= data->state_hi_and;
         ecs_instance->state_lo[entity_id] &= data->state_lo_and;
 }
 
-void ecs_exec_state_and_avx2(ecs_handle_t* restrict ecs_handle, ecs_exec_state_anddata_avx2_t* restrict data) {
+void ecs_exec_state_and_avx2(ecs_handle_t* restrict ecs_handle, 
+                             ecs_exec_state_anddata_avx2_t* restrict data) {
+
         ecs_t* ecs_instance = ecs_handle->instance;
         uint32_t entity_startid8x = data->entity_startid8x;
-        if (entity_startid8x % _UINT32_IN_AVX2REG != 0) THROW("ECS entity start ID not aligned to AVX2 register size");
-        if (entity_startid8x + _UINT32_IN_AVX2REG > ecs_handle->living_count) THROW("Invalid entity ID for state AND AVX2: %u", entity_startid8x);
+
+        if (entity_startid8x % _UINT32_IN_AVX2REG != 0) 
+                THROW("ECS entity start ID not aligned to AVX2 register size");
+
+        if (entity_startid8x + _UINT32_IN_AVX2REG > ecs_handle->living_count) 
+                THROW("Invalid entity ID for state AND AVX2: %u", entity_startid8x);
+
         for (uint32_t i = 0; i < 2; i++) {
-                __m256i state_hi = _mm256_load_si256((__m256i*)&ecs_instance->state_hi[entity_startid8x + i * 4]);
-                __m256i state_lo = _mm256_load_si256((__m256i*)&ecs_instance->state_lo[entity_startid8x + i * 4]);
+                __m256i state_hi = 
+                        _mm256_load_si256((__m256i*)&ecs_instance->state_hi[entity_startid8x +i*4]);
+                __m256i state_lo = 
+                        _mm256_load_si256((__m256i*)&ecs_instance->state_lo[entity_startid8x +i*4]);
                 __m256i state_hi_and = _mm256_load_si256((__m256i*)&data->state_hi_and[i * 4]);
                 __m256i state_lo_and = _mm256_load_si256((__m256i*)&data->state_lo_and[i * 4]);
                 state_hi = _mm256_and_si256(state_hi, state_hi_and);
                 state_lo = _mm256_and_si256(state_lo, state_lo_and);
-                _mm256_store_si256((__m256i*)&ecs_instance->state_hi[entity_startid8x + i * 4], state_hi);
-                _mm256_store_si256((__m256i*)&ecs_instance->state_lo[entity_startid8x + i * 4], state_lo);
+                _mm256_store_si256((__m256i*)&ecs_instance->state_hi[entity_startid8x + i * 4],
+                                   state_hi);
+                _mm256_store_si256((__m256i*)&ecs_instance->state_lo[entity_startid8x + i * 4], 
+                                   state_lo);
         }
 }
 
@@ -227,11 +311,13 @@ void ecs_pos1_devbuf_destroy(vec2f32_t* devbuf) {
 }
 
 static inline ecs_t* _ecs_alloc(void) {
-        ecs_t* ecs_instance = (ecs_t*) aligned_alloc(32, sizeof(ecs_t));
+        size_t size = sizeof(ecs_t);
+        size_t aligned_size = (size + 31) & ~31;
+        ecs_t* ecs_instance = (ecs_t*) aligned_alloc(32, aligned_size);
         if (!ecs_instance) THROW("Failed to allocate ECS");
         memset(ecs_instance, 0, sizeof(ecs_t));
         __m256 neg_one = _mm256_set1_ps(-1.0f);
-        for (uint32_t i = 0; i < ECS_MAX_ENTITIES; i += 8) {
+        for (uint32_t i = 0; i < ECS_MAX_ENTITIES; i += 4) {
                 _mm256_store_ps((float*)&ecs_instance->pos1[i], neg_one);
         }
         ecs_instance->shared = _ecs_shared_alloc();
@@ -240,11 +326,11 @@ static inline ecs_t* _ecs_alloc(void) {
 
 ecs_handle_t ecs_handled_create(void) {
         ecs_t* instance = _ecs_alloc();
-        ecs_handle_t handle = {0};
-        handle.instance = instance;
-        handle.living_count = 0;
-        handle.dead_count = 0;
-        return handle;
+        return (ecs_handle_t){
+                .instance = instance,
+                .living_count = 0,
+                .dead_count = 0
+        };
 }
 
 void ecs_handled_destroy(ecs_handle_t* ecs_handle) {
@@ -296,7 +382,9 @@ static inline void _remove_garbage(ecs_handle_t* restrict ecs_handle) {
                         ecs_instance->entitytype[j] = ecs_instance->entitytype[i];
                         ecs_instance->root_entity_id[j] = ecs_instance->root_entity_id[i];
                         ecs_instance->shared->spriteinfos[j] = ecs_instance->shared->spriteinfos[i];
-                        ecs_instance->shared->spritetimers[j] = ecs_instance->shared->spritetimers[i];
+                        ecs_instance->shared->spritetimers[j] = 
+                                ecs_instance->shared->spritetimers[i];
+
                         j++;
                 }
         }
@@ -308,8 +396,11 @@ static inline void _update_entity_logic(ecs_handle_t* restrict ecs_handle, float
         ecs_t* ecs_instance = ecs_handle->instance;
         for (uint32_t i = 0; i < ecs_handle->living_count; i++) {
                 if (ECS_ISDEAD(ecs_instance->pos1[i])) continue;
+
                 if (ecs_instance->entitytype[i] >= ECS_ENTITYTYPE_COUNT) 
-                        THROW("Invalid entity type for entity ID %u: %u", i, ecs_instance->entitytype[i]);
+                        THROW("Invalid entity type for entity ID %u: %u", i,
+                              ecs_instance->entitytype[i]);
+
                 ecs_entity_updatefunc_table[ecs_instance->entitytype[i]](i, dt);
         }
 }

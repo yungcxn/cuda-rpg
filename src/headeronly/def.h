@@ -5,8 +5,8 @@
 #include <stdio.h> /* IWYU pragma: keep since stderr needs this */
 
 #ifdef __CUDACC__ /* nvcc with c++?? */
-typedef float  float32_t;
-typedef double float64_t;
+#define float32_t float
+#define float64_t double
 #else /* gcc with c23 */
 typedef _Float32 float32_t;
 typedef _Float64 float64_t;
@@ -22,9 +22,15 @@ typedef _Float64 float64_t;
 )
 
 #ifdef DEBUG
+#ifdef __CUDACC__
 #define DEBUG_PRINT(fmt, ...) BLOCK (\
-    fprintf(stdout, "Debug: " fmt "\n", ##__VA_ARGS__); \
+        printf("Debug: " fmt, ##__VA_ARGS__); \
 )
+#else
+#define DEBUG_PRINT(fmt, ...) BLOCK (\
+        fprintf(stdout, "Debug: " fmt, ##__VA_ARGS__); \
+)
+#endif
 #else
 #define DEBUG_PRINT(fmt, ...) ((void)0)
 #endif

@@ -4,6 +4,14 @@
 #include <stdint.h>
 #include "../../headeronly/def.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void entityzombie_update(uint32_t entity_id, float32_t dt);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

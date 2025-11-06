@@ -8,6 +8,11 @@
 #include "ecs.h"
 #include "player/player.h"
 
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define WORLD_DEVTILELAYERS (sizeof((world_map_devtiles_t){0}) / sizeof(world_map_devtilelayer_t*))
 
 #define X_WORLDLIST \
@@ -62,16 +67,18 @@ typedef void (*world_updatefunc_t)(world_ctx_t* world_ctx, float32_t dt);
 world_ctx_t* world_ctx_create();
 void world_ctx_destroy(world_ctx_t* world_ctx);
 void world_ctx_update(world_ctx_t* world_ctx, key_inputfield_t pressed_keys, float32_t dt);
-void world_ctx_load(world_ctx_t* world_ctx, world_id_t world_id); /* unload func is prv*/
+void world_ctx_load(world_ctx_t* world_ctx, world_id_t world_id); /* unload func is prv */
 
 /* for impl to use: */
-world_map_devdata_t world_create_devdata_t(
-        tileinfo_id_t* hostbg, tileinfo_id_t* hostmain, tileinfo_id_t* hostonmain, 
-        tileinfo_id_t* hostfg, uint32_t width, uint32_t height
-);
+world_map_devdata_t world_create_devdata_t(tileinfo_id_t* hostbg, tileinfo_id_t* hostmain,
+                                           tileinfo_id_t* hostonmain, tileinfo_id_t* hostfg,
+                                           uint32_t width, uint32_t height);
 
-world_map_beams_t world_create_map_beams(
-        vec2f32_t* host_tls, vec2f32_t* host_brs, uint32_t beam_count
-);
+world_map_beams_t world_create_map_beams(vec2f32_t* host_tls, vec2f32_t* host_brs,
+                                         uint32_t beam_count);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

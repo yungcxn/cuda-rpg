@@ -30,7 +30,7 @@ res_h_lines.append("#define RES_PALETTE_DATA \\")
 # just add the keys of palette_dict in order of their index
 palette_items = sorted(palette_dict.items(), key=lambda x: x[1])
 for color, index in palette_items:
-    res_h_lines.append(f"        0x{color[0]:02X}{color[1]:02X}{color[2]:02X}{color[3]:02X}, \\")
+    res_h_lines.append(f"        0x{color[3]:02X}{color[0]:02X}{color[1]:02X}{color[2]:02X}, \\")
 res_h_lines.append("\n")
 
 for image_path in images:

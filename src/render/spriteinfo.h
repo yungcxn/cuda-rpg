@@ -3,6 +3,10 @@
 
 #include "../headeronly/vec.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define SPRITEINFO_ANIM_NOANIMDURATION 0.0f
 
 #define X_SPRITEINFO_TUPLE_ANIM_SENTINEL(spriteinfo_id, animlen) \
@@ -130,5 +134,9 @@ spriteinfo_bboff_t* spriteinfo_bboff_devtable_create();
 void spriteinfo_devtable_destroy(spriteinfo_t* spriteinfo_devtable);
 void spriteinfo_animlen_devtable_destroy(float32_t* spriteinfo_animlen_devtable);
 void spriteinfo_bboff_devtable_destroy(spriteinfo_bboff_t* spriteinfo_bboff_devtable);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

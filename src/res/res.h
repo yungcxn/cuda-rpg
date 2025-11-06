@@ -3,21 +3,21 @@
 
 #define RES_PALETTE_DATA \
         0x00000000, \
-        0x0A080DFF, \
-        0x4D2536FF, \
-        0x373461FF, \
-        0xD41C3DFF, \
-        0x9E5252FF, \
-        0x3F9E59FF, \
-        0xF2825CFF, \
-        0x88C44DFF, \
-        0xFFC76EFF, \
-        0x782C96FF, \
-        0x4854A8FF, \
-        0xD4689AFF, \
-        0x7199D9FF, \
-        0xF7AAA8FF, \
-        0xDFE9F5FF, \
+        0xFF0A080D, \
+        0xFF4D2536, \
+        0xFF373461, \
+        0xFFD41C3D, \
+        0xFF9E5252, \
+        0xFF3F9E59, \
+        0xFFF2825C, \
+        0xFF88C44D, \
+        0xFFFFC76E, \
+        0xFF782C96, \
+        0xFF4854A8, \
+        0xFFD4689A, \
+        0xFF7199D9, \
+        0xFFF7AAA8, \
+        0xFFDFE9F5, \
 
 
 #define RES_MOTHERSHEET_WIDTH_TILES 104

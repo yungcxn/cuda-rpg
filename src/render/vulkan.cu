@@ -6,10 +6,10 @@
 #include <cuda_runtime.h>
 #include <unistd.h>
 
-#include "../headeronly/def.h"
-#include "../headeronly/gamemeta.h"
-#include "util/ccuda.h"
 #include "vulkan.h"
+
+#include "../headeronly/def.h"
+#include "../headeronly/gamemeta.h"     
 
 static VkInstance instance = VK_NULL_HANDLE;
 static VkSurfaceKHR surface = VK_NULL_HANDLE;
@@ -68,8 +68,10 @@ static inline void _create_swapchain_and_shared_image(void) {
         if (vkGetPhysicalDeviceSurfaceFormatsKHR(phys_dev, surface, &fmt_count, formats)
             != VK_SUCCESS) THROW("Failed to get surface formats");
         
-        VkSurfaceFormatKHR surface_format = formats[0];
-        DEBUG_PRINT("Swapchain format: %d (44=BGRA, 37=RGBA)\n", surface_format.format);
+        VkSurfaceFormatKHR surface_format = {
+                VK_FORMAT_B8G8R8A8_UNORM,
+                VK_COLOR_SPACE_SRGB_NONLINEAR_KHR
+        };
         free(formats);
 
         VkFormatProperties fmt_props;
@@ -146,12 +148,12 @@ static inline void _create_swapchain_and_shared_image(void) {
                 .pNext = &ext_mem_img_info,
                 .flags = 0,
                 .imageType = VK_IMAGE_TYPE_2D,
-                .format = VK_FORMAT_R8G8B8A8_UNORM,
+                .format = VK_FORMAT_B8G8R8A8_UNORM,
                 .extent = { WIDTH, HEIGHT, 1 },
                 .mipLevels = 1,
                 .arrayLayers = 1,
                 .samples = VK_SAMPLE_COUNT_1_BIT,
-                .tiling = VK_IMAGE_TILING_OPTIMAL,
+                .tiling = VK_IMAGE_TILING_LINEAR,
                 .usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT 
                                                          | VK_IMAGE_USAGE_STORAGE_BIT,
                 .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
@@ -196,6 +198,20 @@ static inline void _create_swapchain_and_shared_image(void) {
                 THROW("Failed to allocate shared memory");
         if (vkBindImageMemory(device, shared_image, shared_memory, 0) != VK_SUCCESS) 
                 THROW("Failed to bind image memory");
+
+        VkImageSubresource subresource = {
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .mipLevel = 0,
+                .arrayLayer = 0
+        };
+        VkSubresourceLayout layout;
+        vkGetImageSubresourceLayout(device, shared_image, &subresource, &layout);
+
+        uint32_t expected_pitch = WIDTH * 4;
+        if (layout.rowPitch != expected_pitch) {
+        THROW("GPU added padding! rowPitch=%zu but expected %u. Your GPU sucks.",
+                layout.rowPitch, expected_pitch);
+        }
 
         VkCommandPool cmd_pool = VK_NULL_HANDLE;
         VkCommandPoolCreateInfo cpi = {
@@ -324,7 +340,7 @@ static inline void _create_swapchain_and_shared_image(void) {
 }
 
 
-tex_realrgba_t* vulkan_setup(void) {
+tex_realrgba_t** vulkan_setup(void) {
         x_display = XOpenDisplay(NULL);
         if (!x_display) THROW("Failed to open X display\n");
 
@@ -448,7 +464,7 @@ tex_realrgba_t* vulkan_setup(void) {
         vkGetDeviceQueue(device, graphics_queue_family, 0, &graphics_queue);
         _create_swapchain_and_shared_image();
 
-        return framebuffer;
+        return &framebuffer; /* since framebuffer changes where it points to possibly */
 }
 
 static inline void _recreate_swapchain() {
@@ -535,7 +551,6 @@ void vulkan_pre_render(uint32_t* image_index) {
 
 void vulkan_post_render(uint32_t image_index) {
         if (image_index >= swapchain_image_count) THROW("Invalid image index in post_render");
-        if (cudaDeviceSynchronize() != cudaSuccess) THROW("Failed to synchronize CUDA device");
         
         VkCommandPool cmd_pool = VK_NULL_HANDLE;
         VkCommandPoolCreateInfo cpi = {

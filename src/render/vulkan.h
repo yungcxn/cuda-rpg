@@ -5,15 +5,18 @@
 #ifdef __CUDACC__
 #include <cuda_runtime.h>
 #endif
-#include "util/ccuda.h"
 #include "tex.h"
 
 #ifndef VK_USE_PLATFORM_XLIB_KHR
         #define VK_USE_PLATFORM_XLIB_KHR
 #endif
-        #include <X11/Xlib.h>
+#include <X11/Xlib.h>
 
-tex_realrgba_t* vulkan_setup(void);
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+tex_realrgba_t** vulkan_setup(void);
 void vulkan_cleanup(void);
 void vulkan_pre_render(uint32_t* image_index);
 void vulkan_post_render(uint32_t image_index);
@@ -21,4 +24,8 @@ void vulkan_post_render(uint32_t image_index);
 Display* vulkan_get_xdisplay(void);
 Window vulkan_get_xwindow(void);
 
-#endif // VULKAN_H
+#ifdef __cplusplus
+}
+#endif
+
+#endif
