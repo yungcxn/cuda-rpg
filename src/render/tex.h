@@ -18,12 +18,12 @@ extern "C" {
 #define TEX_TILEMAP_WIDTH RES_MOTHERSHEET_WIDTH_TILES
 #define TEX_TILEMAP_HEIGHT RES_MOTHERSHEET_HEIGHT_TILES
 
-typedef uint8_t tex_palref_t; /* 0-15 */
+typedef uint8_t tex_palref_t;    /* 0-15 */
 typedef uint64_t tex_tileline_t;
 typedef uint32_t tex_realrgba_t; /* 0xRRGGBBAA */
 
 #define TEX_TILELINE_INDEX(tile_x, tile_y, liny) \
-        (TEX_TILEHEIGHT * TEX_TILEMAP_WIDTH * tile_y + TEX_TILEHEIGHT * tile_x + liny)
+        (TEX_TILEHEIGHT * TEX_TILEMAP_WIDTH * (tile_y) + TEX_TILEHEIGHT * (tile_x) + (liny))
 
 #define TEX_GET_PALREF_FROM_TEXLINE(texline, left_to_right_num) \
         ((tex_palref_t)(texline >> (((15 - (left_to_right_num)) << 2))) & 0xFULL)

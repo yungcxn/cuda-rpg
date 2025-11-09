@@ -1,3 +1,4 @@
+
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <cuda_runtime_api.h>
@@ -175,7 +176,7 @@ void _kernel_collect_renderable_sprites(ecs_shared_t* devecs, vec2f32_t* devecs_
             || pos.x > (cam.x + RENDER_OFFSCREEN_SPRITEMARGIN + WIDTH_TILES) 
             || pos.y < (cam.y - RENDER_OFFSCREEN_SPRITEMARGIN) 
             || pos.y > (cam.y + RENDER_OFFSCREEN_SPRITEMARGIN + HEIGHT_TILES)
-            || id == SPRITEINFO_ID_NONE) {
+            || id == SID(NONE)) {
                 return; /* out of render bounds */
         }
 
@@ -376,7 +377,7 @@ __device__ __forceinline__
 static tex_palref_t _get_tile_palref(cudaTextureObject_t texObj_tileinfo_devtable, 
                                      cudaTextureObject_t texObj_tex_tilemap, tileinfo_id_t tileid, 
                                      uint32_t px, uint32_t py) {
-        if (tileid == TILEINFO_ID_VOID) return 0;
+        if (tileid == TID(VOID)) return 0;
 
         const tileinfo_t tileinfo = tex_1d_fetch_custom<tileinfo_t>(texObj_tileinfo_devtable,
                                                                     tileid);
@@ -447,7 +448,7 @@ static void _kernel_render_world_map(tex_realrgba_t* framebuffer, world_map_devd
                 return;
         }
 
-        uint8_t final_pal = 0;
+        tex_palref_t final_pal = 0;
         float32_t final_depth = 0;
         if (mapdata.fg != 0) {
                 final_pal = _get_tile_palref(texObj_tileinfo_devtable, texObj_tex_tilemap, 
@@ -542,6 +543,8 @@ static void _kernel_render_entity_sprites(tex_realrgba_t* framebuffer, ecs_share
         } else if (entity_id < ECS_MAX_ENTITIES) {
                 pos = ecs_pos1[entity_id];
                 sprite_id = ecs->spriteinfos[entity_id];
+        } else {
+                return;
         }
 
         const spriteinfo_t spriteinfo = tex_1d_fetch_custom<spriteinfo_t>(
@@ -577,10 +580,10 @@ static void _kernel_render_entity_sprites(tex_realrgba_t* framebuffer, ecs_share
 
                         const tex_palref_t palref = TEX_GET_PALREF_FROM_TEXLINE(line, threadIdx.x);
 
-                        if (palref != 0) { 
-                                _render_pixel(framebuffer, depthbuffer, shared_palette, 
-                                              {screen_x, screen_y}, 
-                                              pos.y + pos.x * 0.0001f, palref);
+                        if (palref != 0) {
+                                _render_pixel(framebuffer, depthbuffer, shared_palette,
+                                              {screen_x, screen_y}, pos.y + pos.x * 0.0001f,
+                                              palref);
                         }
                 }
         }
@@ -599,10 +602,7 @@ void render(tex_realrgba_t** framebuffer_ptr, world_map_devdata_t devmapdata,
         
         {
                 const vec2f32_t cam_f = render_hostcamerapos;
-                const vec2i32_t cam_i = {
-                        (int32_t)cam_f.x,
-                        (int32_t)cam_f.y
-                };
+                const vec2i32_t cam_i = {(int32_t)cam_f.x, (int32_t)cam_f.y};
                 const vec2i32_t pixeloffset = {
                         (int32_t)((cam_f.x - (float32_t)cam_i.x) * TEX_TILEWIDTH),
                         (int32_t)((cam_f.y - (float32_t)cam_i.y) * TEX_TILEHEIGHT)

@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include "../headeronly/vec.h"
+#include "bitfsm.h"
 #include "../render/spriteinfo.h"
 
 #ifdef __cplusplus
@@ -13,36 +14,39 @@ extern "C" {
 #define ECS_ENTITY_DEADMASK BIT64(63)
 
 #define ECS_ISDEAD(pos1) ((pos1).x == -1.0f && (pos1).y == -1.0f)
-#define ECS_GARBAGE_REMOVAL_THRESHOLD 100  /* number of killed entities to trigger garbage removal */
+#define ECS_SETDEAD(pos1) do { (pos1).x = -1.0f; (pos1).y = -1.0f; } while(0)
+#define ECS_GARBAGE_REMOVAL_THRESHOLD 100  /* number of killed entities to trigger garbage removal*/
 #define _UINT32_IN_AVX2REG 8
 
-#define ECS_ENTITYTYPE_LIST \
-        X_ENTITYTYPE_TUPLE(ECS_ENTITY_ZOMBIE, entityzombie_update)
+#define EID(name_id) _ECS_ENTITYTYPE_ID_##name_id
 
-#define X_ENTITYTYPE_TUPLE(name_id, updatefunc) name_id,
+#define ECS_ENTITYTYPE_LIST \
+        X(EID(ZOMBIE), entityzombie_update)
+
+
+#define X(name_id, updatefunc) name_id,
 typedef enum {
         ECS_ENTITYTYPE_LIST
         ECS_ENTITYTYPE_COUNT
 } ecs_entitytype_t;
-#undef X_ENTITYTYPE_TUPLE
+#undef X
 
 typedef void (*ecs_entity_updatefunc_t)(uint32_t entity_id, float32_t dt);
 
 typedef struct __attribute__((aligned(32))) {
-        spriteinfo_id_t spriteinfos[ECS_MAX_ENTITIES] __attribute__((aligned(32))); /* + 32 => 400 */
+        spriteinfo_id_t spriteinfos[ECS_MAX_ENTITIES] __attribute__((aligned(32))); /* + 32 => 400*/
         float32_t spritetimers[ECS_MAX_ENTITIES] __attribute__((aligned(32))); /* + 32 => 432 */
 } ecs_shared_t; /* this is shared between dev and host */
 
 typedef struct __attribute__((aligned(32))) {
-        uint64_t state_hi[ECS_MAX_ENTITIES] __attribute__((aligned(32))); /* 64 */
-        uint64_t state_lo[ECS_MAX_ENTITIES] __attribute__((aligned(32))); /* + 64 => 128 */
-        vec2f32_t pos1[ECS_MAX_ENTITIES] __attribute__((aligned(32))); /* + 64 => 192 */
-        vec2f32_t pos2[ECS_MAX_ENTITIES] __attribute__((aligned(32))); /* + 64 => 256 */
-        vec2f32_t velocity[ECS_MAX_ENTITIES] __attribute__((aligned(32))); /* + 64 => 320 */
+        bitfsm_state_t state[ECS_MAX_ENTITIES] __attribute__((aligned(32))); /* 64 */
+        vec2f32_t pos1[ECS_MAX_ENTITIES] __attribute__((aligned(32))); /* + 64 => 128 */
+        vec2f32_t pos2[ECS_MAX_ENTITIES] __attribute__((aligned(32))); /* + 64 => 192 */
+        vec2f32_t velocity[ECS_MAX_ENTITIES] __attribute__((aligned(32))); /* + 64 => 256 */
         /* we handle sprites on GPU */
-        ecs_entitytype_t entitytype[ECS_MAX_ENTITIES] __attribute__((aligned(32))); /* + 32 => 352 */
-        uint32_t root_entity_id[ECS_MAX_ENTITIES] __attribute__((aligned(32))); /* + 32 => 384 */
-        ecs_shared_t* shared; /* + 64 => 432 */
+        ecs_entitytype_t entitytype[ECS_MAX_ENTITIES] __attribute__((aligned(32))); /* + 32 => 288 */
+        uint32_t root_entity_id[ECS_MAX_ENTITIES] __attribute__((aligned(32))); /* + 32 => 320 */
+        ecs_shared_t* shared; /* + 64 => 384 */
 } ecs_t;
 
 typedef struct __attribute__((aligned(32))) {
@@ -107,38 +111,12 @@ typedef struct __attribute__((aligned(32))) { /* unpacked */
         vec2f32_t pos2[_UINT32_IN_AVX2REG]; /* 2 simd regs */
 } ecs_exec_teleportdata_avx2_t;
 
-typedef struct { /* unpacked */
-        uint32_t entity_id;
-        uint64_t state_hi_or;
-        uint64_t state_lo_or;
-} ecs_exec_state_ordata_t;
-
-typedef struct __attribute__((aligned(32))) { /* unpacked */
-        uint32_t entity_startid8x;
-        uint64_t state_hi_or[_UINT32_IN_AVX2REG]; /* 2 simd regs */
-        uint64_t state_lo_or[_UINT32_IN_AVX2REG]; /* 2 simd regs */
-} ecs_exec_state_ordata_avx2_t;
-
-typedef struct { /* unpacked */
-        uint32_t entity_id;
-        uint64_t state_hi_and;
-        uint64_t state_lo_and;
-} ecs_exec_state_anddata_t;
-
-typedef struct __attribute__((aligned(32))) { /* unpacked */
-        uint32_t entity_startid8x;
-        uint64_t state_hi_and[_UINT32_IN_AVX2REG]; /* 2 simd regs */
-        uint64_t state_lo_and[_UINT32_IN_AVX2REG]; /* 2 simd regs */
-} ecs_exec_state_anddata_avx2_t;
-
 #define ecs_exec(ptr) _Generic((ptr), \
         ecs_exec_spawndata_t*: ecs_exec_spawn, \
         ecs_exec_killdata_t*: ecs_exec_kill, \
         ecs_exec_velocity_acceldata_t*: ecs_exec_velocity_accel, \
         ecs_exec_velocity_setdata_t*: ecs_exec_velocity_set, \
         ecs_exec_teleportdata_t*: ecs_exec_teleport, \
-        ecs_exec_state_ordata_t*: ecs_exec_state_or, \
-        ecs_exec_state_anddata_t*: ecs_exec_state_and \
 )(ptr)
 
 #define ecs_exec_avx2(ptr) _Generic((ptr), \
@@ -147,8 +125,6 @@ typedef struct __attribute__((aligned(32))) { /* unpacked */
         ecs_exec_velocity_acceldata_avx2_t*: ecs_exec_velocity_accel_avx2, \
         ecs_exec_velocity_setdata_avx2_t*: ecs_exec_velocity_set_avx2, \
         ecs_exec_teleportdata_avx2_t*: ecs_exec_teleport_avx2, \
-        ecs_exec_state_ordata_avx2_t*: ecs_exec_state_or_avx2, \
-        ecs_exec_state_anddata_avx2_t*: ecs_exec_state_and_avx2 \
 )(ptr)
 
 void ecs_exec_spawn(ecs_handle_t* ecs_handle, ecs_exec_spawndata_t* data);
@@ -156,8 +132,6 @@ void ecs_exec_kill(ecs_handle_t* ecs_handle, ecs_exec_killdata_t* data);
 void ecs_exec_velocity_accel(ecs_handle_t* ecs_handle, ecs_exec_velocity_acceldata_t* data);
 void ecs_exec_velocity_set(ecs_handle_t* ecs_handle, ecs_exec_velocity_setdata_t* data);
 void ecs_exec_teleport(ecs_handle_t* ecs_handle, ecs_exec_teleportdata_t* data);
-void ecs_exec_state_or(ecs_handle_t* ecs_handle, ecs_exec_state_ordata_t* data);
-void ecs_exec_state_and(ecs_handle_t* ecs_handle, ecs_exec_state_anddata_t* data);
 
 void ecs_exec_spawn_avx2(ecs_handle_t* ecs_handle, ecs_exec_spawndata_avx2_t* data);
 void ecs_exec_kill_avx2(ecs_handle_t* ecs_handle, ecs_exec_killdata_avx2_t* data);
@@ -165,8 +139,6 @@ void ecs_exec_velocity_accel_avx2(ecs_handle_t* ecs_handle,
                                   ecs_exec_velocity_acceldata_avx2_t* data);
 void ecs_exec_velocity_set_avx2(ecs_handle_t* ecs_handle, ecs_exec_velocity_setdata_avx2_t* data);
 void ecs_exec_teleport_avx2(ecs_handle_t* ecs_handle, ecs_exec_teleportdata_avx2_t* data);
-void ecs_exec_state_or_avx2(ecs_handle_t* ecs_handle, ecs_exec_state_ordata_avx2_t* data);
-void ecs_exec_state_and_avx2(ecs_handle_t* ecs_handle, ecs_exec_state_anddata_avx2_t* data);
 
 ecs_handle_t ecs_handled_create(void);
 void ecs_handled_destroy(ecs_handle_t* ecs_handle);

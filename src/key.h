@@ -29,6 +29,7 @@ void key_poll_event(void);
 
 key_inputfield_t key_get_pressed(void);
 key_inputfield_t key_get_typestart(void);
+key_inputfield_t key_get_keyrelease(void);
 
 #ifdef __cplusplus
 }

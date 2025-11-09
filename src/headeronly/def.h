@@ -42,6 +42,9 @@ typedef _Float64 float64_t;
 #define BIT32(n) ((uint32_t)(1U << (n)))
 #define BIT64(n) ((uint64_t)(1ULL << (n)))
 
+#define CONTAINER_OF(ptr, type, member) \
+    ((type *)((char *)(ptr) - offsetof(type, member)))
+
 typedef enum {
         STATUS_OK = 0,
         STATUS_ERR_NOMEM = 1,

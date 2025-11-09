@@ -3,35 +3,35 @@
 #include "../headeronly/def.h"
 #include "util/ccuda.h"
 
-#define X_SPRITEINFO_TUPLE(id, tx, ty, comp_w, comp_h, bb_xoff, bb_yoff) \
-        SPRITEINFO(tx, ty, comp_w, comp_h),
-#define X_SPRITEINFO_TUPLE_ANIM(id, tx, ty, comp_w, comp_h, bb_xoff, bb_yoff, animlen) \
-        SPRITEINFO(tx, ty, comp_w, comp_h),
+#define X(id, tx, ty, comp_w, comp_h, bb_xoff, bb_yoff) SPRITEINFO(tx, ty, comp_w, comp_h),
+#define XA(id, tx, ty, comp_w, comp_h, bb_xoff, bb_yoff, animlen) SPRITEINFO(tx, ty, comp_w,comp_h),
+#define XAS(id, animlen) SPRITEINFO(0, 0, 0, 0),
 static const spriteinfo_t spriteinfo_hosttable[SPRITEINFOS] = {
-        SPRITEINFO_LIST
+        X_SPRITEINFO_LIST
 };
-#undef X_SPRITEINFO_TUPLE
-#undef X_SPRITEINFO_TUPLE_ANIM
+#undef X
+#undef XA
+#undef XAS
 
-#define X_SPRITEINFO_TUPLE(id, tx, ty, comp_w, comp_h, bb_xoff, bb_yoff) \
-        [id] = SPRITEINFO_ANIM_NOANIMDURATION,
-#define X_SPRITEINFO_TUPLE_ANIM(id, tx, ty, comp_w, comp_h, bb_xoff, bb_yoff, animlen) \
-        [id] = animlen,
+#define X(id, tx, ty, comp_w, comp_h, bb_xoff, bb_yoff) [id] = SPRITEINFO_ANIM_NOANIMDURATION,
+#define XA(id, tx, ty, comp_w, comp_h, bb_xoff, bb_yoff, animlen) [id] = animlen,
+#define XAS(id, animlen) [id] = -animlen,
 static const float32_t spriteinfo_animlen_hosttable[SPRITEINFOS] = {
-        SPRITEINFO_LIST
+        X_SPRITEINFO_LIST
 };
-#undef X_SPRITEINFO_TUPLE
-#undef X_SPRITEINFO_TUPLE_ANIM
+#undef X
+#undef XA
+#undef XAS
 
-#define X_SPRITEINFO_TUPLE(id, tx, ty, comp_w, comp_h, bb_xoff, bb_yoff) \
-        SPRITEINFO_BBOFF(bb_xoff, bb_yoff),
-#define X_SPRITEINFO_TUPLE_ANIM(id, tx, ty, comp_w, comp_h, bb_xoff, bb_yoff, animlen) \
-        SPRITEINFO_BBOFF(bb_xoff, bb_yoff),
+#define X(id, tx, ty, comp_w, comp_h, bb_xoff, bb_yoff) SPRITEINFO_BBOFF(bb_xoff, bb_yoff),
+#define XA(id, tx, ty, comp_w, comp_h, bb_xoff, bb_yoff, animlen) SPRITEINFO_BBOFF(bb_xoff,bb_yoff),
+#define XAS(id, animlen) SPRITEINFO_BBOFF(0, 0),
 static const spriteinfo_bboff_t spriteinfo_bboff_hosttable[SPRITEINFOS] = {
-        SPRITEINFO_LIST
+        X_SPRITEINFO_LIST
 };
-#undef X_SPRITEINFO_TUPLE
-#undef X_SPRITEINFO_TUPLE_ANIM
+#undef X
+#undef XA
+#undef XAS
 
 spriteinfo_t* spriteinfo_devtable_create() {
         spriteinfo_t* spriteinfo_devtable;

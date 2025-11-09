@@ -332,11 +332,6 @@ static inline void _create_swapchain_and_shared_image(void) {
                 != cudaSuccess) {
                 THROW("Failed to get CUDA mapped buffer");
         }
-
-        DEBUG_PRINT(
-                "Render image: RGBA, Swapchain: format %d (BGRA auto-converted by GPU)\n",
-                surface_format.format
-        );
 }
 
 
@@ -349,10 +344,9 @@ tex_realrgba_t** vulkan_setup(void) {
 
         XSetWindowAttributes swa;
         swa.event_mask = ExposureMask | KeyPressMask | StructureNotifyMask;
-        x_window = XCreateWindow(
-                x_display, root, 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, 0,
-                CopyFromParent, InputOutput, CopyFromParent, CWEventMask, &swa
-        );
+        x_window = XCreateWindow(x_display, root, 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, 0,
+                                 CopyFromParent, InputOutput, CopyFromParent, CWEventMask, &swa);
+
         XStoreName(x_display, x_window, TITLE);
         XMapWindow(x_display, x_window);
         XSync(x_display, False);

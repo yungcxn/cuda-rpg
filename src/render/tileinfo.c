@@ -3,21 +3,25 @@
 #include "../headeronly/def.h"
 #include "util/ccuda.h"
 
-#define X_TILEINFO_TUPLE(id, tx, ty) TILEINFO(tx, ty),
-#define X_TILEINFO_TUPLE_ANIM(id, tx, ty, animlen) TILEINFO(tx, ty), 
+#define X(id, tx, ty) TILEINFO(tx, ty),
+#define XA(id, tx, ty, animlen) TILEINFO(tx, ty), 
+#define XAS(id, animlen) TILEINFO(0, 0),
 static const tileinfo_t tileinfo_hosttable[TILEINFOS] = {
-        TILEINFO_LIST
+        X_TILEINFO_LIST
 };
-#undef X_TILEINFO_TUPLE
-#undef X_TILEINFO_TUPLE_ANIM
+#undef X
+#undef XA
+#undef XAS
 
-#define X_TILEINFO_TUPLE(id, tx, ty) [id] = 0.0f,
-#define X_TILEINFO_TUPLE_ANIM(id, tx, ty, animlen) [id] = animlen,
+#define X(id, tx, ty) [id] = 0.0f,
+#define XA(id, tx, ty, animlen) [id] = animlen,
+#define XAS(id, animlen) [id] = -animlen,
 static const float32_t tileinfo_animlen_hosttable[TILEINFOS] = {
-        TILEINFO_LIST
+        X_TILEINFO_LIST
 };
-#undef X_TILEINFO_TUPLE
-#undef X_TILEINFO_TUPLE_ANIM
+#undef X
+#undef XA
+#undef XAS
 
 tileinfo_t* tileinfo_devtable_create(void) {
         tileinfo_t* tileinfo_devtable;

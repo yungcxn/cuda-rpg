@@ -12,96 +12,98 @@ extern "C" {
 #define X_SPRITEINFO_TUPLE_ANIM_SENTINEL(spriteinfo_id, animlen) \
         X_SPRITEINFO_TUPLE_ANIM(spriteinfo_id, 0, 0, 0, 0, 0, 0, (float32_t) -animlen)
 
-#define SPRITEINFO_LIST \
-        X_SPRITEINFO_TUPLE(SPRITEINFO_ID_NONE, 0, 0, 0, 0, 0, 0) \
-        X_SPRITEINFO_TUPLE(SPRITEINFO_ID_PRINCESS_IDLE_D, 0, 176, 1, 2, 0, -1) \
-        X_SPRITEINFO_TUPLE(SPRITEINFO_ID_PRINCESS_IDLE_U, 1, 176, 1, 2, 0, -1) \
-        X_SPRITEINFO_TUPLE(SPRITEINFO_ID_PRINCESS_IDLE_R, 2, 176, 1, 2, 0, -1) \
-        X_SPRITEINFO_TUPLE(SPRITEINFO_ID_PRINCESS_IDLE_L, 3, 176, 1, 2, 0, -1) \
+#define SID(sid) _SPRITEINFO_ID_##sid
+
+#define X_SPRITEINFO_LIST \
+        X(SID(NONE), 0, 0, 0, 0, 0, 0) \
+        X(SID(PRINCESS_IDLE_D), 0, 33, 1, 2, 0, -1) \
+        X(SID(PRINCESS_IDLE_U), 1, 33, 1, 2, 0, -1) \
+        X(SID(PRINCESS_IDLE_R), 2, 33, 1, 2, 0, -1) \
+        X(SID(PRINCESS_IDLE_L), 3, 33, 1, 2, 0, -1) \
         \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_IDLE_D_0, 0, 208, 1, 2, 0, -1, 1.0f) \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_IDLE_D_1, 1, 208, 1, 2, 0, -1, 1.0f) \
-        X_SPRITEINFO_TUPLE_ANIM_SENTINEL(SPRITEINFO_ID_PLAYER_IDLE_D_2, 2) \
+        XA(SID(PLAYER_IDLE_D_0), 0, 35, 1, 2, 0, -1, 1.0f) \
+        XA(SID(PLAYER_IDLE_D_1), 1, 35, 1, 2, 0, -1, 1.0f) \
+        XAS(SID(PLAYER_IDLE_D_2), 2) \
         \
-        X_SPRITEINFO_TUPLE(SPRITEINFO_ID_PLAYER_IDLE_U, 2, 208, 1, 2, 0, 0) \
-        X_SPRITEINFO_TUPLE(SPRITEINFO_ID_PLAYER_IDLE_R, 3, 208, 1, 2, 0, 0) \
-        X_SPRITEINFO_TUPLE(SPRITEINFO_ID_PLAYER_IDLE_L, 4, 208, 1, 2, 0, 0) \
+        X(SID(PLAYER_IDLE_U), 2, 35, 1, 2, 0, 0) \
+        X(SID(PLAYER_IDLE_R), 3, 35, 1, 2, 0, 0) \
+        X(SID(PLAYER_IDLE_L), 4, 35, 1, 2, 0, 0) \
         \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_RUN_D_0, 0, 240, 1, 2, 0, -1, 0.1f) \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_RUN_D_1, 1, 240, 1, 2, 0, -1, 0.1f) \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_RUN_D_2, 2, 240, 1, 2, 0, -1, 0.1f) \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_RUN_D_3, 3, 240, 1, 2, 0, -1, 0.1f) \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_RUN_D_4, 4, 240, 1, 2, 0, -1, 0.1f) \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_RUN_D_5, 5, 240, 1, 2, 0, -1, 0.1f) \
-        X_SPRITEINFO_TUPLE_ANIM_SENTINEL(SPRITEINFO_ID_PLAYER_RUN_D_6, 6) \
+        XA(SID(PLAYER_RUN_D_0), 0, 37, 1, 2, 0, -1, 0.1f) \
+        XA(SID(PLAYER_RUN_D_1), 1, 37, 1, 2, 0, -1, 0.1f) \
+        XA(SID(PLAYER_RUN_D_2), 2, 37, 1, 2, 0, -1, 0.1f) \
+        XA(SID(PLAYER_RUN_D_3), 3, 37, 1, 2, 0, -1, 0.1f) \
+        XA(SID(PLAYER_RUN_D_4), 4, 37, 1, 2, 0, -1, 0.1f) \
+        XA(SID(PLAYER_RUN_D_5), 5, 37, 1, 2, 0, -1, 0.1f) \
+        XAS(SID(PLAYER_RUN_D_6), 6) \
         \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_RUN_U_0, 6, 240, 1, 2, 0, -1, 0.1f) \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_RUN_U_1, 7, 240, 1, 2, 0, -1, 0.1f) \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_RUN_U_2, 8, 240, 1, 2, 0, -1, 0.1f) \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_RUN_U_3, 9, 240, 1, 2, 0, -1, 0.1f) \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_RUN_U_4, 10, 240, 1, 2, 0, -1, 0.1f) \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_RUN_U_5, 11, 240, 1, 2, 0, -1, 0.1f) \
-        X_SPRITEINFO_TUPLE_ANIM_SENTINEL(SPRITEINFO_ID_PLAYER_RUN_U_6, 6) \
+        XA(SID(PLAYER_RUN_U_0), 6, 37, 1, 2, 0, -1, 0.1f) \
+        XA(SID(PLAYER_RUN_U_1), 7, 37, 1, 2, 0, -1, 0.1f) \
+        XA(SID(PLAYER_RUN_U_2), 8, 37, 1, 2, 0, -1, 0.1f) \
+        XA(SID(PLAYER_RUN_U_3), 9, 37, 1, 2, 0, -1, 0.1f) \
+        XA(SID(PLAYER_RUN_U_4), 10, 37, 1, 2, 0, -1, 0.1f) \
+        XA(SID(PLAYER_RUN_U_5), 11, 37, 1, 2, 0, -1, 0.1f) \
+        XAS(SID(PLAYER_RUN_U_6), 6) \
         \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_RUN_R_0, 12, 240, 1, 2, 0, -1, 0.1f) \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_RUN_R_1, 13, 240, 1, 2, 0, -1, 0.1f) \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_RUN_R_2, 14, 240, 1, 2, 0, -1, 0.1f) \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_RUN_R_3, 15, 240, 1, 2, 0, -1, 0.1f) \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_RUN_R_4, 16, 240, 1, 2, 0, -1, 0.1f) \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_RUN_R_5, 17, 240, 1, 2, 0, -1, 0.1f) \
-        X_SPRITEINFO_TUPLE_ANIM_SENTINEL(SPRITEINFO_ID_PLAYER_RUN_R_6, 6) \
+        XA(SID(PLAYER_RUN_R_0), 12, 37, 1, 2, 0, -1, 0.1f) \
+        XA(SID(PLAYER_RUN_R_1), 13, 37, 1, 2, 0, -1, 0.1f) \
+        XA(SID(PLAYER_RUN_R_2), 14, 37, 1, 2, 0, -1, 0.1f) \
+        XA(SID(PLAYER_RUN_R_3), 15, 37, 1, 2, 0, -1, 0.1f) \
+        XA(SID(PLAYER_RUN_R_4), 16, 37, 1, 2, 0, -1, 0.1f) \
+        XA(SID(PLAYER_RUN_R_5), 17, 37, 1, 2, 0, -1, 0.1f) \
+        XAS(SID(PLAYER_RUN_R_6), 6) \
         \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_RUN_L_0, 18, 240, 1, 2, 0, -1, 0.1f) \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_RUN_L_1, 19, 240, 1, 2, 0, -1, 0.1f) \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_RUN_L_2, 20, 240, 1, 2, 0, -1, 0.1f) \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_RUN_L_3, 21, 240, 1, 2, 0, -1, 0.1f) \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_RUN_L_4, 22, 240, 1, 2, 0, -1, 0.1f) \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_RUN_L_5, 23, 240, 1, 2, 0, -1, 0.1f) \
-        X_SPRITEINFO_TUPLE_ANIM_SENTINEL(SPRITEINFO_ID_PLAYER_RUN_L_6, 6) \
+        XA(SID(PLAYER_RUN_L_0), 18, 37, 1, 2, 0, -1, 0.1f) \
+        XA(SID(PLAYER_RUN_L_1), 19, 37, 1, 2, 0, -1, 0.1f) \
+        XA(SID(PLAYER_RUN_L_2), 20, 37, 1, 2, 0, -1, 0.1f) \
+        XA(SID(PLAYER_RUN_L_3), 21, 37, 1, 2, 0, -1, 0.1f) \
+        XA(SID(PLAYER_RUN_L_4), 22, 37, 1, 2, 0, -1, 0.1f) \
+        XA(SID(PLAYER_RUN_L_5), 23, 37, 1, 2, 0, -1, 0.1f) \
+        XAS(SID(PLAYER_RUN_L_6), 6) \
         \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_ROLL_U_0, 0, 272, 1, 2, 0, -1, 0.05f) \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_ROLL_U_1, 1, 272, 1, 2, 0, -1, 0.05f) \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_ROLL_U_2, 2, 272, 1, 2, 0, -1, 0.05f) \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_ROLL_U_3, 3, 272, 1, 2, 0, -1, 0.05f) \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_ROLL_U_4, 4, 272, 1, 2, 0, -1, 0.05f) \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_ROLL_U_5, 5, 272, 1, 2, 0, -1, 0.05f) \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_ROLL_U_6, 6, 272, 1, 2, 0, -1, 0.05f) \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_ROLL_U_7, 7, 272, 1, 2, 0, -1, 0.05f) \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_ROLL_U_8, 8, 272, 1, 2, 0, -1, 0.05f) \
-        X_SPRITEINFO_TUPLE_ANIM_SENTINEL(SPRITEINFO_ID_PLAYER_ROLL_U_9, 9) \
+        XA(SID(PLAYER_ROLL_U_0), 0, 39, 1, 2, 0, -1, 0.05f) \
+        XA(SID(PLAYER_ROLL_U_1), 1, 39, 1, 2, 0, -1, 0.05f) \
+        XA(SID(PLAYER_ROLL_U_2), 2, 39, 1, 2, 0, -1, 0.05f) \
+        XA(SID(PLAYER_ROLL_U_3), 3, 39, 1, 2, 0, -1, 0.05f) \
+        XA(SID(PLAYER_ROLL_U_4), 4, 39, 1, 2, 0, -1, 0.05f) \
+        XA(SID(PLAYER_ROLL_U_5), 5, 39, 1, 2, 0, -1, 0.05f) \
+        XA(SID(PLAYER_ROLL_U_6), 6, 39, 1, 2, 0, -1, 0.05f) \
+        XA(SID(PLAYER_ROLL_U_7), 7, 39, 1, 2, 0, -1, 0.05f) \
+        XA(SID(PLAYER_ROLL_U_8), 8, 39, 1, 2, 0, -1, 0.05f) \
+        XAS(SID(PLAYER_ROLL_U_9), 9) \
         \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_ROLL_D_0, 9, 272, 1, 2, 0, -1, 0.05f) \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_ROLL_D_1, 10, 272, 1, 2, 0, -1, 0.05f) \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_ROLL_D_2, 11, 272, 1, 2, 0, -1, 0.05f) \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_ROLL_D_3, 12, 272, 1, 2, 0, -1, 0.05f) \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_ROLL_D_4, 13, 272, 1, 2, 0, -1, 0.05f) \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_ROLL_D_5, 14, 272, 1, 2, 0, -1, 0.05f) \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_ROLL_D_6, 15, 272, 1, 2, 0, -1, 0.05f) \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_ROLL_D_7, 16, 272, 1, 2, 0, -1, 0.05f) \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_ROLL_D_8, 17, 272, 1, 2, 0, -1, 0.05f) \
-        X_SPRITEINFO_TUPLE_ANIM_SENTINEL(SPRITEINFO_ID_PLAYER_ROLL_D_9, 9) \
+        XA(SID(PLAYER_ROLL_D_0), 9, 39, 1, 2, 0, -1, 0.05f) \
+        XA(SID(PLAYER_ROLL_D_1), 10, 39, 1, 2, 0, -1, 0.05f) \
+        XA(SID(PLAYER_ROLL_D_2), 11, 39, 1, 2, 0, -1, 0.05f) \
+        XA(SID(PLAYER_ROLL_D_3), 12, 39, 1, 2, 0, -1, 0.05f) \
+        XA(SID(PLAYER_ROLL_D_4), 13, 39, 1, 2, 0, -1, 0.05f) \
+        XA(SID(PLAYER_ROLL_D_5), 14, 39, 1, 2, 0, -1, 0.05f) \
+        XA(SID(PLAYER_ROLL_D_6), 15, 39, 1, 2, 0, -1, 0.05f) \
+        XA(SID(PLAYER_ROLL_D_7), 16, 39, 1, 2, 0, -1, 0.05f) \
+        XA(SID(PLAYER_ROLL_D_8), 17, 39, 1, 2, 0, -1, 0.05f) \
+        XAS(SID(PLAYER_ROLL_D_9), 9) \
         \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_ROLL_R_0, 18, 272, 1, 2, 0, -1, 0.05f) \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_ROLL_R_1, 19, 272, 1, 2, 0, -1, 0.05f) \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_ROLL_R_2, 20, 272, 1, 2, 0, -1, 0.05f) \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_ROLL_R_3, 21, 272, 1, 2, 0, -1, 0.05f) \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_ROLL_R_4, 22, 272, 1, 2, 0, -1, 0.05f) \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_ROLL_R_5, 21, 272, 1, 2, 0, -1, 0.05f) \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_ROLL_R_6, 22, 272, 1, 2, 0, -1, 0.05f) \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_ROLL_R_7, 23, 272, 1, 2, 0, -1, 0.05f) \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_ROLL_R_8, 24, 272, 1, 2, 0, -1, 0.05f) \
-        X_SPRITEINFO_TUPLE_ANIM_SENTINEL(SPRITEINFO_ID_PLAYER_ROLL_R_9, 9) \
+        XA(SID(PLAYER_ROLL_R_0), 18, 39, 1, 2, 0, -1, 0.05f) \
+        XA(SID(PLAYER_ROLL_R_1), 19, 39, 1, 2, 0, -1, 0.05f) \
+        XA(SID(PLAYER_ROLL_R_2), 20, 39, 1, 2, 0, -1, 0.05f) \
+        XA(SID(PLAYER_ROLL_R_3), 21, 39, 1, 2, 0, -1, 0.05f) \
+        XA(SID(PLAYER_ROLL_R_4), 22, 39, 1, 2, 0, -1, 0.05f) \
+        XA(SID(PLAYER_ROLL_R_5), 21, 39, 1, 2, 0, -1, 0.05f) \
+        XA(SID(PLAYER_ROLL_R_6), 22, 39, 1, 2, 0, -1, 0.05f) \
+        XA(SID(PLAYER_ROLL_R_7), 23, 39, 1, 2, 0, -1, 0.05f) \
+        XA(SID(PLAYER_ROLL_R_8), 24, 39, 1, 2, 0, -1, 0.05f) \
+        XAS(SID(PLAYER_ROLL_R_9), 9) \
         \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_ROLL_L_0, 25, 272, 1, 2, 0, -1, 0.05f) \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_ROLL_L_1, 26, 272, 1, 2, 0, -1, 0.05f) \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_ROLL_L_2, 27, 272, 1, 2, 0, -1, 0.05f) \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_ROLL_L_3, 28, 272, 1, 2, 0, -1, 0.05f) \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_ROLL_L_4, 29, 272, 1, 2, 0, -1, 0.05f) \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_ROLL_L_5, 30, 272, 1, 2, 0, -1, 0.05f) \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_ROLL_L_6, 31, 272, 1, 2, 0, -1, 0.05f) \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_ROLL_L_7, 32, 272, 1, 2, 0, -1, 0.05f) \
-        X_SPRITEINFO_TUPLE_ANIM(SPRITEINFO_ID_PLAYER_ROLL_L_8, 33, 272, 1, 2, 0, -1, 0.05f) \
-        X_SPRITEINFO_TUPLE_ANIM_SENTINEL(SPRITEINFO_ID_PLAYER_ROLL_L_9, 9)
+        XA(SID(PLAYER_ROLL_L_0), 25, 39, 1, 2, 0, -1, 0.05f) \
+        XA(SID(PLAYER_ROLL_L_1), 26, 39, 1, 2, 0, -1, 0.05f) \
+        XA(SID(PLAYER_ROLL_L_2), 27, 39, 1, 2, 0, -1, 0.05f) \
+        XA(SID(PLAYER_ROLL_L_3), 28, 39, 1, 2, 0, -1, 0.05f) \
+        XA(SID(PLAYER_ROLL_L_4), 29, 39, 1, 2, 0, -1, 0.05f) \
+        XA(SID(PLAYER_ROLL_L_5), 30, 39, 1, 2, 0, -1, 0.05f) \
+        XA(SID(PLAYER_ROLL_L_6), 31, 39, 1, 2, 0, -1, 0.05f) \
+        XA(SID(PLAYER_ROLL_L_7), 32, 39, 1, 2, 0, -1, 0.05f) \
+        XA(SID(PLAYER_ROLL_L_8), 33, 39, 1, 2, 0, -1, 0.05f) \
+        XAS(SID(PLAYER_ROLL_L_9), 9)
 
 /* the spriteinfo_id_t corresponds to the index in the spriteinfo table */
 typedef uint32_t spriteinfo_id_t;
@@ -114,15 +116,16 @@ typedef struct __attribute__((packed)) {
 
 typedef vec2f32_t spriteinfo_bboff_t;
 
-#define X_SPRITEINFO_TUPLE(id, tx, ty, comp_w, comp_h, bb_xoff, bb_yoff) id,
-#define X_SPRITEINFO_TUPLE_ANIM(id, tx, ty, comp_w, comp_h, bb_xoff, bb_yoff, anim_speed) id,
+#define X(id, tx, ty, comp_w, comp_h, bb_xoff, bb_yoff) id,
+#define XA(id, tx, ty, comp_w, comp_h, bb_xoff, bb_yoff, animlen) id,
+#define XAS(id, animlen) id,
 enum {
-        SPRITEINFO_LIST
+        X_SPRITEINFO_LIST
         SPRITEINFOS /* not beautiful, but little hack since __countof is unsupported in nvcc */
 }; /* spriteinfo_id_t */
-
-#undef X_SPRITEINFO_TUPLE 
-#undef X_SPRITEINFO_TUPLE_ANIM
+#undef X
+#undef XA
+#undef XAS
 
 #define SPRITEINFO(tx, ty, comp_w, comp_h) {tx, ty, comp_w, comp_h}
 #define SPRITEINFO_BBOFF(bb_xoff, bb_yoff) {bb_xoff, bb_yoff}

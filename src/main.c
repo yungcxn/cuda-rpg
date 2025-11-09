@@ -8,6 +8,7 @@
 #include "world/world.h"
 #include "render/vulkan.h"
 #include "render/render.h"
+#include "controller.h"
 
 world_ctx_t* world_ctx;
 
@@ -19,7 +20,9 @@ static float32_t _get_time_seconds(void) {
 
 static inline void _update(float32_t dt) {
         key_inputfield_t pressed = key_get_pressed();
-        world_ctx_update(world_ctx, pressed, dt);
+        key_inputfield_t released = key_get_keyrelease();
+        controller_apply(world_ctx, pressed, released);
+        world_ctx_update(world_ctx, dt);
 }
 
 int main(void) {
@@ -39,10 +42,8 @@ int main(void) {
 
                 _update(dt);
 
-                render(framebuffer_ptr, world_ctx->world.devtiles, 
-                       world_ctx->ecs_handle, world_ctx->player, dt);
-
-                last_time = _get_time_seconds();
+                render(framebuffer_ptr, world_ctx->world.devtiles, world_ctx->ecs_handle,
+                       world_ctx->player, dt);
         }
 
         world_ctx_destroy(world_ctx);

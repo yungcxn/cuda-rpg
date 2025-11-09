@@ -1,72 +1,64 @@
-
 #include "key.h"
-
 #include <X11/keysym.h>
 #include <X11/Xlib.h>
-#include <stdlib.h>
-#include <string.h>
-
 #include "render/vulkan.h"
 #include "headeronly/def.h"
-
-const uint32_t key_x11_to_code_table[256] = { /* since the XKeys go usually up to 0xFF */
-        [XK_W] = KEY_INPUT_W,
-        [XK_w] = KEY_INPUT_W,
-        [XK_A] = KEY_INPUT_A,
-        [XK_a] = KEY_INPUT_A,
-        [XK_S] = KEY_INPUT_S,
-        [XK_s] = KEY_INPUT_S,
-        [XK_D] = KEY_INPUT_D,
-        [XK_d] = KEY_INPUT_D,
-        [XK_Escape & 0xFF] = KEY_INPUT_ESC, /* hack; does not clash with other common key */
-        [XK_space] = KEY_INPUT_SPACE,
-};
 
 static Display* x_display = 0;
 static Window   x_window  = 0;
 
 static key_inputfield_t current_presseds = 0;
-static key_inputfield_t current_typestarts = 0; 
+static key_inputfield_t current_typestarts = 0;
+static key_inputfield_t current_keyreleases = 0;
 static key_inputfield_t _pressed_before = 0;
 
 void key_setup() {
         x_display = vulkan_get_xdisplay();
-        x_window  = vulkan_get_xwindow();
-        if (!x_display || !x_window) THROW("Failed to get X11 Display or Window from renderer");
-
-        /* ensure the window is selecting key events */
+        x_window = vulkan_get_xwindow();
+        if (!x_display || !x_window)
+                THROW("Failed to get X11 Display or Window from renderer");
         XSelectInput(x_display, x_window, KeyPressMask | KeyReleaseMask);
 }
 
 void key_cleanup(void) {
-        /* nothing to free here, we don't own the Display/Window */
         x_display = 0;
         x_window = 0;
 }
 
 void key_poll_event(void) {
-        if (!x_display) THROW("X11 Display not initialized in key module");
-        if (XPending(x_display) == 0) return;
-
-        /* we must reset typestarts, since we do not carry over per frame */
+        if (!x_display)
+                THROW("X11 Display not initialized in key module");
         _pressed_before = current_presseds;
+        current_typestarts = 0;
+        current_keyreleases = 0;
         XEvent ev;
-        XNextEvent(x_display, &ev);
-        if (ev.type == KeyPress) {
-                KeyCode keycode = ev.xkey.keycode & 0xFF;
-                uint32_t key = key_x11_to_code_table[keycode]; 
-                current_presseds |= KEY_MOD(key);
-
-                if (KEY_ON(_pressed_before, key) && KEY_ON(current_presseds, key)) {
-                        current_typestarts &= ~KEY_MOD(key);
-                } else {
-                        current_typestarts |= KEY_MOD(key);
+        while (XPending(x_display)) {
+                XNextEvent(x_display, &ev);
+                if (ev.type != KeyPress && ev.type != KeyRelease)
+                        continue;
+                KeySym sym = XLookupKeysym(&ev.xkey, 0);
+                uint32_t k;
+                switch (sym) {
+                        case XK_w:
+                        case XK_W:      k = KEY_INPUT_W; break;
+                        case XK_s:
+                        case XK_S:      k = KEY_INPUT_S; break;
+                        case XK_a:
+                        case XK_A:      k = KEY_INPUT_A; break;
+                        case XK_d:
+                        case XK_D:      k = KEY_INPUT_D; break;
+                        case XK_Escape: k = KEY_INPUT_ESC; break;
+                        case XK_space:  k = KEY_INPUT_SPACE; break;
+                        default: continue;
                 }
-        } else if (ev.type == KeyRelease) {
-                /* we do not remove from typestarts, gets cleared next frame, but only presseds */
-                KeyCode keycode = ev.xkey.keycode & 0xFF;
-                uint32_t key = key_x11_to_code_table[keycode];
-                current_presseds &= ~KEY_MOD(key);
+                if (ev.type == KeyPress) {
+                        current_presseds |= KEY_MOD(k);
+                        if (!KEY_ON(_pressed_before, k))
+                                current_typestarts |= KEY_MOD(k);
+                } else {
+                        current_presseds &= ~KEY_MOD(k);
+                        current_keyreleases |= KEY_MOD(k);
+                }
         }
 }
 
@@ -76,4 +68,8 @@ key_inputfield_t key_get_pressed(void) {
 
 key_inputfield_t key_get_typestart(void) {
         return current_typestarts;
+}
+
+key_inputfield_t key_get_keyrelease(void) {
+        return current_keyreleases;
 }

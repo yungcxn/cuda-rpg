@@ -6,8 +6,8 @@
 #define WORLDMAIN_WIDTH 20   /* in tiles */
 #define WORLDMAIN_HEIGHT 16  /* in tiles */
 
-#define GA TILEINFO_ID_GRASS_A
-#define VO TILEINFO_VOID
+#define GA TID(GRASS_A)
+#define VO TID(VOID)
 static const tileinfo_id_t devtiles_main_layer[WORLDMAIN_HEIGHT][WORLDMAIN_WIDTH] = {
         { GA, GA, GA, GA, GA, GA, GA, GA, GA, GA, GA, GA, GA, GA, GA, GA, GA, GA, GA, GA },
         { GA, GA, GA, GA, GA, GA, GA, GA, GA, GA, GA, GA, GA, GA, GA, GA, GA, GA, GA, GA },

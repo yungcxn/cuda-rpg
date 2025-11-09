@@ -1,23 +1,23 @@
 #include <string.h>
 
 #include "world.h"
-#include "impl/worldmain.h" /* IWYU pragma: keep for X_WORLD */
-#include "impl/worldhome.h" /* IWYU pragma: keep for X_WORLD */
+#include "impl/worldmain.h" /* IWYU pragma: keep for X */
+#include "impl/worldhome.h" /* IWYU pragma: keep for X_WORXLD_TUPLE */
 #include "ecs.h"
 #include "../render/util/ccuda.h"
 
 
-#define X_WORLD(name_id, loadfunc, updatefunc) loadfunc,
+#define X(name_id, loadfunc, updatefunc) loadfunc,
 static const world_loadfunc_t world_loadfunc_table[] = {
     X_WORLDLIST
 };
-#undef X_WORLD
+#undef X
 
-#define X_WORLD(name_id, loadfunc, updatefunc) updatefunc,
+#define X(name_id, loadfunc, updatefunc) updatefunc,
 static const world_updatefunc_t world_updatefunc_table[] = {
     X_WORLDLIST
 };
-#undef X_WORLD
+#undef X
 
 static world_updatefunc_t world_ctx_updatefunc;
 
@@ -72,12 +72,14 @@ void world_ctx_load(world_ctx_t* world_ctx, world_id_t world_id) {
         world_ctx_firstload(world_ctx, world_id);
 }
 
-void world_ctx_update(world_ctx_t* world_ctx, key_inputfield_t pressed_keys, float32_t dt) {
+void world_ctx_update(world_ctx_t* world_ctx, float32_t dt) {
         if (!world_ctx_updatefunc) THROW("No world update function set");
-        world_ctx_updatefunc(world_ctx, dt);
-        player_update(world_ctx->player, pressed_keys, dt);
-        ecs_update(&(world_ctx->ecs_handle), dt);
 
+        world_ctx_updatefunc(world_ctx, dt);
+
+        player_update(world_ctx->player, dt);
+
+        ecs_update(&(world_ctx->ecs_handle), dt);
 }
 
 world_ctx_t* world_ctx_create() {
