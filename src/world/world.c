@@ -72,7 +72,7 @@ void world_ctx_load(world_ctx_t* world_ctx, world_id_t world_id) {
         world_ctx_firstload(world_ctx, world_id);
 }
 
-void world_ctx_update(world_ctx_t* world_ctx, float32_t dt) {
+void world_ctx_update(world_ctx_t* world_ctx, float64_t dt) {
         if (!world_ctx_updatefunc) THROW("No world update function set");
 
         world_ctx_updatefunc(world_ctx, dt);

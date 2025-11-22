@@ -15,7 +15,7 @@ extern "C" {
 void render_data_setup(void);
 void render_data_cleanup(void);
 void render(tex_realrgba_t** framebuffer_ptr, world_map_devdata_t devmapdata, 
-            ecs_handle_t hostecs_handle, player_t* hostplayer, float32_t dt);
+            ecs_handle_t hostecs_handle, player_t* hostplayer, float64_t dt);
 
 #ifdef __cplusplus
 }

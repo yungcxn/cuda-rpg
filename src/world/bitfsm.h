@@ -9,16 +9,16 @@ extern "C" {
 
 #include "../key.h"
 
-#define BITFSM_ISSET(state, mask) ((state) & (mask) == (mask))
-#define BITFSM_ISNOTSET(state, negmask) ((state) & (negmask) == 0)
-#define BITFSM_ANY(state, mask) ((state) & (mask))
+#define BITFSM_ISSET(state, mask) (((state) & (mask)) == (mask))
+#define BITFSM_ISNOTSET(state, negmask) (((state) & (negmask)) == 0)
+#define BITFSM_ANY(state, mask) (((state) & (mask)) != 0)
 
 #define _BITFSM_STATE_INGAME_DEAD   BIT64(63)
 
-#define _BITFSM_STATE_LOOK_UP       BIT64(KEY_INPUT_W)
-#define _BITFSM_STATE_LOOK_DOWN     BIT64(KEY_INPUT_S)
-#define _BITFSM_STATE_LOOK_LEFT     BIT64(KEY_INPUT_A)
-#define _BITFSM_STATE_LOOK_RIGHT    BIT64(KEY_INPUT_D)
+#define _BITFSM_STATE_LOOK_UP       BIT64(KEY_INPUT_W) /* 0 */
+#define _BITFSM_STATE_LOOK_DOWN     BIT64(KEY_INPUT_S) /* 1 */
+#define _BITFSM_STATE_LOOK_LEFT     BIT64(KEY_INPUT_A) /* 2 */
+#define _BITFSM_STATE_LOOK_RIGHT    BIT64(KEY_INPUT_D) /* 3 */
 
 #define _BITFSM_STATE_WALK          BIT64(4)
 #define _BITFSM_STATE_ROLL          BIT64(5)
@@ -31,15 +31,16 @@ extern "C" {
 
 #define X_BITFSM_LIVING_SUBTABLE \
         X(TOK(WALK_UP), ST(MOVABLE), 0, ST(WALK) | ST(LOOK_UP), 0) \
-        X(TOK(END_WALK_UP), ST(WALK) | ST(LOOK_UP), 0, 0, ST(WALK) | ST(LOOK_UP)) \
+        X(TOK(END_WALK_UP), ST(WALK), 0, 0, ST(LOOK_UP)) \
         X(TOK(WALK_DOWN), ST(MOVABLE), 0, ST(WALK) | ST(LOOK_DOWN), 0) \
-        X(TOK(END_WALK_DOWN), ST(WALK) | ST(LOOK_DOWN), 0, 0, ST(WALK) | ST(LOOK_DOWN)) \
+        X(TOK(END_WALK_DOWN), ST(WALK), 0, 0, ST(LOOK_DOWN)) \
         X(TOK(WALK_LEFT), ST(MOVABLE), 0, ST(WALK) | ST(LOOK_LEFT), 0) \
-        X(TOK(END_WALK_LEFT), ST(WALK) | ST(LOOK_LEFT), 0, 0, ST(WALK) | ST(LOOK_LEFT)) \
+        X(TOK(END_WALK_LEFT), ST(WALK), 0, 0, ST(LOOK_LEFT)) \
         X(TOK(WALK_RIGHT), ST(MOVABLE), 0, ST(WALK) | ST(LOOK_RIGHT), 0) \
-        X(TOK(END_WALK_RIGHT), ST(WALK) | ST(LOOK_RIGHT), 0, 0, ST(WALK) | ST(LOOK_RIGHT)) \
+        X(TOK(END_WALK_RIGHT), ST(WALK), 0, 0, ST(LOOK_RIGHT)) \
+        X(TOK(STOP_WALKING), 0, ST(MOVING), 0, ST(WALK)) \
         X(TOK(ROLL), ST(MOVABLE), 0, ST(ROLL), ST(MOVABLE)) \
-        X(TOK(END_ROLL), ST(ROLL), 0, 0, ST(ROLL) | ST(MOVABLE))
+        X(TOK(END_ROLL), ST(ROLL), 0, ST(MOVABLE), ST(ROLL))
 
 
 #define X_BITFSM_TABLE \

@@ -59,7 +59,7 @@ void player_setpos(player_t* player, vec2f32_t pos1) {
         player->pos2 = (vec2f32_t){pos1.x + PLAYER_BB_WIDTH, pos1.y + PLAYER_BB_HEIGHT};
 }
 
-static inline void _check_role_end(player_t* player, float32_t dt) {
+static inline void _check_role_end(player_t* player, float64_t dt) {
         if (!player) THROW("No player to decrement rolltimer for");
         if (player->rolltimer > 0.0f) {
                 player->rolltimer -= dt;
@@ -73,14 +73,14 @@ static inline void _check_role_end(player_t* player, float32_t dt) {
         }
 }
 
-static inline void _apply_velocity(player_t* player, float32_t dt) {
+static inline void _apply_velocity(player_t* player, float64_t dt) {
         player->pos1.x += player->velocity.x * dt;
         player->pos1.y += player->velocity.y * dt;
         player->pos2.x = player->pos1.x + PLAYER_BB_WIDTH;
         player->pos2.y = player->pos1.y + PLAYER_BB_HEIGHT;
 }
 
-static inline void _calc_velocity(player_t* player, float32_t dt) {
+static inline void _calc_velocity(player_t* player, float64_t dt) {
         if (!player) THROW("No player to calculate velocity for");
         const bitfsm_state_t state = player->state;
         if (!PLAYER_MOVING(state)) {
@@ -108,10 +108,8 @@ static inline void _calc_velocity(player_t* player, float32_t dt) {
         }
 }
 
-void player_update(player_t* player, float32_t dt) {
+void player_update(player_t* player, float64_t dt) {
         if (!player) THROW("No player to update");
-
-        printf("Player pos: (%.2f, %.2f)\n", player->pos1.x, player->pos1.y);
         
         /* Update position based on velocity and delta time */
         _check_role_end(player, dt);
@@ -122,8 +120,6 @@ void player_update(player_t* player, float32_t dt) {
 void player_bitfsm_callback(void* playerstate, bitfsm_token_t tok) {
         player_t* player = CONTAINER_OF(playerstate, player_t, state);
         if (!player) THROW("No player in bitfsm callback");
-        printf("Player FSM state changed to 0x%016llx on token %u\n", 
-               *(bitfsm_state_t*)playerstate, tok);
 
         player_t* p = CONTAINER_OF(playerstate, player_t, state);
         bitfsm_state_t state = *(bitfsm_state_t*)playerstate;

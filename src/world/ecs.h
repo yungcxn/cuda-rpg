@@ -31,7 +31,7 @@ typedef enum {
 } ecs_entitytype_t;
 #undef X
 
-typedef void (*ecs_entity_updatefunc_t)(uint32_t entity_id, float32_t dt);
+typedef void (*ecs_entity_updatefunc_t)(uint32_t entity_id, float64_t dt);
 
 typedef struct __attribute__((aligned(32))) {
         spriteinfo_id_t spriteinfos[ECS_MAX_ENTITIES] __attribute__((aligned(32))); /* + 32 => 400*/
@@ -142,7 +142,7 @@ void ecs_exec_teleport_avx2(ecs_handle_t* ecs_handle, ecs_exec_teleportdata_avx2
 
 ecs_handle_t ecs_handled_create(void);
 void ecs_handled_destroy(ecs_handle_t* ecs_handle);
-void ecs_update(ecs_handle_t* ecs_handle, float32_t dt);
+void ecs_update(ecs_handle_t* ecs_handle, float64_t dt);
 void ecs_zero_out(ecs_handle_t* ecs_handle);
 ecs_shared_t* ecs_shared_devbuf_create(void);
 void ecs_shared_devbuf_destroy(ecs_shared_t* devbuf);

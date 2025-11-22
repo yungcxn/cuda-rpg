@@ -62,11 +62,11 @@ typedef struct {
 } world_ctx_t; /* current world context */
 
 typedef void (*world_loadfunc_t)(world_ctx_t* world_ctx);
-typedef void (*world_updatefunc_t)(world_ctx_t* world_ctx, float32_t dt);
+typedef void (*world_updatefunc_t)(world_ctx_t* world_ctx, float64_t dt);
 
 world_ctx_t* world_ctx_create();
 void world_ctx_destroy(world_ctx_t* world_ctx);
-void world_ctx_update(world_ctx_t* world_ctx, float32_t dt);
+void world_ctx_update(world_ctx_t* world_ctx, float64_t dt);
 void world_ctx_load(world_ctx_t* world_ctx, world_id_t world_id); /* unload func is prv */
 
 /* for impl to use: */

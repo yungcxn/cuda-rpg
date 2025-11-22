@@ -42,7 +42,7 @@ void worldmain_load(world_ctx_t* world_ctx) {
                                                         BEAM_COUNT);
 }
 
-void worldmain_update(world_ctx_t* world_ctx, float32_t dt) {
+void worldmain_update(world_ctx_t* world_ctx, float64_t dt) {
         ecs_t* ecs_instance = world_ctx->ecs_handle.instance;
         /* TODO */
 }

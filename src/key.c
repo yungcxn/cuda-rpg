@@ -26,8 +26,8 @@ void key_cleanup(void) {
 }
 
 void key_poll_event(void) {
-        if (!x_display)
-                THROW("X11 Display not initialized in key module");
+        if (!x_display) THROW("X11 Display not initialized in key module");
+        
         _pressed_before = current_presseds;
         current_typestarts = 0;
         current_keyreleases = 0;
@@ -56,11 +56,20 @@ void key_poll_event(void) {
                         if (!KEY_ON(_pressed_before, k))
                                 current_typestarts |= KEY_MOD(k);
                 } else {
+                        if (XPending(x_display)) {
+                                XEvent next;
+                                XPeekEvent(x_display, &next);
+                                if (next.type == KeyPress &&
+                                    next.xkey.time == ev.xkey.time &&
+                                    next.xkey.keycode == ev.xkey.keycode)
+                                        continue;
+                        }
                         current_presseds &= ~KEY_MOD(k);
                         current_keyreleases |= KEY_MOD(k);
                 }
         }
 }
+
 
 key_inputfield_t key_get_pressed(void) {
         return current_presseds;

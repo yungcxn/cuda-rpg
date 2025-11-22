@@ -5,7 +5,7 @@
 #include "./headeronly/def.h"
 #include "key.h"
 
-void controller_apply(world_ctx_t* world_ctx, key_inputfield_t pressed_keys, 
-                      key_inputfield_t released_keys);
+void controller_apply(world_ctx_t* world_ctx, key_inputfield_t pressed_keys,
+                      key_inputfield_t typestart_keys, key_inputfield_t released_keys);
 
 #endif

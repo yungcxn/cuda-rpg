@@ -21,20 +21,6 @@ typedef _Float64 float64_t;
         exit(EXIT_FAILURE); \
 )
 
-#ifdef DEBUG
-#ifdef __CUDACC__
-#define DEBUG_PRINT(fmt, ...) BLOCK (\
-        printf("Debug: " fmt, ##__VA_ARGS__); \
-)
-#else
-#define DEBUG_PRINT(fmt, ...) BLOCK (\
-        fprintf(stdout, "Debug: " fmt, ##__VA_ARGS__); \
-)
-#endif
-#else
-#define DEBUG_PRINT(fmt, ...) ((void)0)
-#endif
-
 #define NIBBLEPACK(hi, lo) ((((hi) & 0xF) << 4) | ((lo) & 0xF))
 
 #define BIT8(n)  ((uint8_t)(1U << (n)))

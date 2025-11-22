@@ -250,7 +250,7 @@ void ecs_handled_destroy(ecs_handle_t* ecs_handle) {
 }
 
 /* does not operate on instr cache */
-static inline void _update_positions(ecs_handle_t* restrict ecs_handle, float32_t dt) {
+static inline void _update_positions(ecs_handle_t* restrict ecs_handle, float64_t dt) {
         /* each AVX2 register holds 4 vec2f32_t (8 float32_ts: x,y,x,y,x,y,x,y) */
         /*  aswell as 4 vec2f32_t (8 float32_ts: dx, dy, dx, dy, dx, dy, dx, dy) */
         ecs_t* e = ecs_handle->instance;
@@ -299,7 +299,7 @@ static inline void _remove_garbage(ecs_handle_t* restrict ecs_handle) {
         ecs_handle->dead_count = 0;
 }
 
-static inline void _update_entity_logic(ecs_handle_t* restrict ecs_handle, float32_t dt) {
+static inline void _update_entity_logic(ecs_handle_t* restrict ecs_handle, float64_t dt) {
         ecs_t* ecs_instance = ecs_handle->instance;
         for (uint32_t i = 0; i < ecs_handle->living_count; i++) {
                 if (ECS_ISDEAD(ecs_instance->pos1[i])) continue;
@@ -312,7 +312,7 @@ static inline void _update_entity_logic(ecs_handle_t* restrict ecs_handle, float
         }
 }
 
-void ecs_update(ecs_handle_t* restrict ecs_handle, float32_t dt) {
+void ecs_update(ecs_handle_t* restrict ecs_handle, float64_t dt) {
         if (ecs_handle->dead_count > ECS_GARBAGE_REMOVAL_THRESHOLD) _remove_garbage(ecs_handle);
         _update_entity_logic(ecs_handle, dt); /* 1.: may apply e.g. velocity or set sprite */
         _update_positions(ecs_handle, dt);    /* 2.: update positions based on velocity    */

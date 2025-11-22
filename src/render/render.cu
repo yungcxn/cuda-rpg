@@ -152,7 +152,7 @@ void render_data_cleanup(void) {
 }
 
 __global__ 
-void _kernel_collect_renderable_sprites(ecs_shared_t* devecs, vec2f32_t* devecs_pos1,
+void _k_collect_renderable_sprites(ecs_shared_t* devecs, vec2f32_t* devecs_pos1,
                                         player_shared_t* devplayer, vec2f32_t player_pos,
                                         vec2f32_t cam, cuarray_t<uint32_t>* renderable_ids) {
 
@@ -184,9 +184,9 @@ void _kernel_collect_renderable_sprites(ecs_shared_t* devecs, vec2f32_t* devecs_
 }
 
 __global__ 
-void _kernel_animate_renderable_sprites(ecs_shared_t* devecs, player_shared_t* devplayer, 
-                                        cuarray_t<uint32_t>* renderable_ids,
-                                        float32_t* spriteinfo_animlen_devtable, const float32_t dt){
+void _k_animate_renderable_sprites(ecs_shared_t* devecs, player_shared_t* devplayer, 
+                                   cuarray_t<uint32_t>* renderable_ids,
+                                   float32_t* spriteinfo_animlen_devtable, const float64_t dt){
 
         const uint32_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx >= cuarray_length(renderable_ids)) return;
@@ -225,11 +225,11 @@ void _kernel_animate_renderable_sprites(ecs_shared_t* devecs, player_shared_t* d
 }
 
 __global__ 
-static void _kernel_animate_worldmap_slice(world_map_devdata_t mapdata, 
-                                           cudaTextureObject_t texObj_tileinfo_animlen_devtable,
-                                           float32_t* tileinfo_animtimer_devcache, 
-                                           uint32_t* tileinfo_animtimer_updatelocks, 
-                                           const vec2i32_t coarse_cam, const float32_t dt) {
+static void _k_animate_worldmap_slice(world_map_devdata_t mapdata, 
+                                      cudaTextureObject_t texObj_tileinfo_animlen_devtable,
+                                      float32_t* tileinfo_animtimer_devcache, 
+                                      uint32_t* tileinfo_animtimer_updatelocks, 
+                                      const vec2i32_t coarse_cam, const float64_t dt) {
 
         /* one thread per tile per layer */
         /* started 1d setup */
@@ -295,7 +295,7 @@ static void _kernel_animate_worldmap_slice(world_map_devdata_t mapdata,
 }
 
 __global__ 
-void _kernel_clear_depth(float32_t* screen_depthbuffer) {
+void _k_clear_depth(float32_t* screen_depthbuffer) {
         uint32_t x = blockIdx.x * blockDim.x + threadIdx.x;
         uint32_t y = blockIdx.y * blockDim.y + threadIdx.y;
 
@@ -303,7 +303,7 @@ void _kernel_clear_depth(float32_t* screen_depthbuffer) {
 }
 
 static inline void _prerender(world_map_devdata_t devworldmap, ecs_handle_t hostecs_handle,
-                              player_t* hostplayer, const float32_t dt) {
+                              player_t* hostplayer, const float64_t dt) {
                                 
         cudaMemcpy((void*)devecs, (const void*)hostecs_handle.instance->shared, 
                    sizeof(ecs_shared_t), cudaMemcpyHostToDevice);
@@ -321,7 +321,7 @@ static inline void _prerender(world_map_devdata_t devworldmap, ecs_handle_t host
                 dim3 gridDim((WIDTH + blockDim.x - 1) / blockDim.x, 
                              (HEIGHT + blockDim.y - 1) / blockDim.y);
 
-                _kernel_clear_depth<<<gridDim, blockDim>>>(depthbuffer);
+                _k_clear_depth<<<gridDim, blockDim>>>(depthbuffer);
         }
 
         {
@@ -334,11 +334,11 @@ static inline void _prerender(world_map_devdata_t devworldmap, ecs_handle_t host
                         (int32_t)(render_hostcamerapos.x),
                         (int32_t)(render_hostcamerapos.y)
                 };
-                _kernel_animate_worldmap_slice<<<numblocks, threadsperblock>>>(devworldmap, 
+                _k_animate_worldmap_slice<<<numblocks, threadsperblock>>>(devworldmap, 
                                                                    texObj_tileinfo_animlen_devtable,
                                                                         tileinfo_animtimer_devcache,
                                                                      tileinfo_animtimer_updatelocks,
-                                                                               coarse_cam, dt);
+                                                                          coarse_cam, dt);
         }
 
         {
@@ -346,11 +346,11 @@ static inline void _prerender(world_map_devdata_t devworldmap, ecs_handle_t host
                 constexpr uint32_t threads = RENDER_DEFAULTBLOCKSIZE;
                 const uint32_t total_threads = ECS_MAX_ENTITIES + 1;
                 const uint32_t numblocks = (total_threads + threads - 1) / threads;
-                _kernel_collect_renderable_sprites<<<numblocks, threads>>>(devecs, devecs_pos1, 
-                                                                           devplayer, 
-                                                                           hostplayer->pos1,
-                                                                           render_hostcamerapos,
-                                                                           devrenderable_ids);
+                _k_collect_renderable_sprites<<<numblocks, threads>>>(devecs, devecs_pos1, 
+                                                                      devplayer, 
+                                                                      hostplayer->pos1,
+                                                                      render_hostcamerapos,
+                                                                      devrenderable_ids);
         }
 
         {
@@ -358,10 +358,10 @@ static inline void _prerender(world_map_devdata_t devworldmap, ecs_handle_t host
                 const uint32_t total_threads = renderablecount;
                 constexpr uint32_t blocksize = RENDER_DEFAULTBLOCKSIZE;
                 const uint32_t numblocks = (total_threads + blocksize - 1) / blocksize;
-                _kernel_animate_renderable_sprites<<<numblocks, blocksize>>>(devecs, devplayer,
-                                                                             devrenderable_ids,
+                _k_animate_renderable_sprites<<<numblocks, blocksize>>>(devecs, devplayer,
+                                                                        devrenderable_ids,
                                                                         spriteinfo_animlen_devtable,
-                                                                             dt);
+                                                                        dt);
         }
 }
 
@@ -377,6 +377,7 @@ __device__ __forceinline__
 static tex_palref_t _get_tile_palref(cudaTextureObject_t texObj_tileinfo_devtable, 
                                      cudaTextureObject_t texObj_tex_tilemap, tileinfo_id_t tileid, 
                                      uint32_t px, uint32_t py) {
+
         if (tileid == TID(VOID)) return 0;
 
         const tileinfo_t tileinfo = tex_1d_fetch_custom<tileinfo_t>(texObj_tileinfo_devtable,
@@ -410,12 +411,12 @@ void _render_pixel(uint32_t* framebuffer, float32_t* screen_depthbuffer,
 
 
 __global__ 
-static void _kernel_render_world_map(tex_realrgba_t* framebuffer, world_map_devdata_t mapdata, 
-                                     cudaTextureObject_t texObj_tileinfo_devtable, 
-                                     cudaTextureObject_t texObj_tex_tilemap, 
-                                     cudaTextureObject_t texObj_tex_palette, 
-                                     float32_t* depthbuffer, vec2i32_t coarse_cam,
-                                     vec2i32_t pixeloffset) {
+static void _k_render_world_map(tex_realrgba_t* framebuffer, world_map_devdata_t mapdata, 
+                                cudaTextureObject_t texObj_tileinfo_devtable, 
+                                cudaTextureObject_t texObj_tex_tilemap, 
+                                cudaTextureObject_t texObj_tex_palette, 
+                                float32_t* depthbuffer, vec2i32_t coarse_cam,
+                                vec2i32_t pixeloffset) {
 
         constexpr float32_t depths_per_layer[] = {
                 RENDER_MINDEPTH + 1.0f, /* bg */
@@ -508,7 +509,7 @@ draw:
 }
 
 __global__ 
-static void _kernel_render_entity_sprites(tex_realrgba_t* framebuffer, ecs_shared_t* ecs, 
+static void _k_render_entity_sprites(tex_realrgba_t* framebuffer, ecs_shared_t* ecs, 
                                           vec2f32_t* ecs_pos1, player_shared_t* player, 
                                           vec2f32_t player_pos1, 
                                           cudaTextureObject_t texObj_spriteinfo_devtable,
@@ -591,7 +592,7 @@ static void _kernel_render_entity_sprites(tex_realrgba_t* framebuffer, ecs_share
 
 /* pixel write is safe; therefore we can render map and entities at the same time. */
 void render(tex_realrgba_t** framebuffer_ptr, world_map_devdata_t devmapdata, 
-            ecs_handle_t hostecs_handle, player_t* hostplayer, float32_t dt) {
+            ecs_handle_t hostecs_handle, player_t* hostplayer, float64_t dt) {
 
         tex_realrgba_t* framebuffer = *framebuffer_ptr; /* after vulkan post, this gets updated */
         uint32_t img_idx = 0;
@@ -611,7 +612,7 @@ void render(tex_realrgba_t** framebuffer_ptr, world_map_devdata_t devmapdata,
                 dim3 gridDim(PADDEDWIDTH_TILES, PADDEDHEIGHT_TILES, 1); /* tile amount of blocks */
                 dim3 blockDim(TEX_TILEWIDTH, TEX_TILEHEIGHT, 1);
 
-                _kernel_render_world_map<<<gridDim, blockDim>>>(framebuffer, devmapdata,
+                _k_render_world_map<<<gridDim, blockDim>>>(framebuffer, devmapdata,
                                                                 texObj_tileinfo_devtable,
                                                                 texObj_tex_tilemap,
                                                                 texObj_tex_palette,
@@ -624,7 +625,7 @@ void render(tex_realrgba_t** framebuffer_ptr, world_map_devdata_t devmapdata,
 
                 dim3 blockDim(TEX_TILEWIDTH, TEX_TILEHEIGHT, 1);
                 dim3 gridDim(host_renderables, 1, 1);
-                _kernel_render_entity_sprites<<<gridDim, blockDim>>>(framebuffer, devecs, 
+                _k_render_entity_sprites<<<gridDim, blockDim>>>(framebuffer, devecs, 
                                                                      devecs_pos1, devplayer,
                                                                      hostplayer->pos1,
                                                                      texObj_spriteinfo_devtable,
